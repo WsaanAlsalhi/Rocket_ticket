@@ -1,0 +1,355 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background:
+        radial-gradient(
+            circle at top,
+            #172b4d,
+            #050912 65%
+        );
+
+    color: white;
+}
+
+button,
+input {
+    font-family: inherit;
+}
+
+.container {
+    width: 100%;
+    max-width: 1100px;
+
+    margin: auto;
+
+    padding: 40px 20px;
+}
+
+
+/* =========================
+   REGISTRATION
+========================= */
+
+.registration {
+    max-width: 520px;
+
+    margin: 60px auto;
+
+    padding: 40px;
+
+    border-radius: 24px;
+
+    background: rgba(255,255,255,0.06);
+
+    border: 1px solid rgba(255,255,255,0.12);
+
+    box-shadow:
+        0 25px 80px rgba(0,0,0,0.4);
+}
+
+.logo {
+    text-align: center;
+
+    font-size: 60px;
+
+    margin-bottom: 10px;
+}
+
+.title {
+    text-align: center;
+
+    font-size: 32px;
+
+    letter-spacing: 3px;
+}
+
+.subtitle {
+    text-align: center;
+
+    color: #aeb9c9;
+
+    margin-bottom: 35px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+
+    margin-bottom: 8px;
+
+    font-size: 14px;
+}
+
+.form-group input {
+    width: 100%;
+
+    padding: 15px;
+
+    border-radius: 10px;
+
+    border: 1px solid rgba(255,255,255,0.15);
+
+    background: rgba(255,255,255,0.08);
+
+    color: white;
+
+    font-size: 16px;
+
+    outline: none;
+}
+
+.form-group input:focus {
+    border-color: #6da9ff;
+}
+
+.form-group input::placeholder {
+    color: #8e9aaa;
+}
+
+.submit-button {
+    width: 100%;
+
+    border: none;
+
+    padding: 16px;
+
+    border-radius: 10px;
+
+    background: white;
+
+    color: #07111f;
+
+    font-weight: bold;
+
+    font-size: 16px;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.submit-button:hover {
+    transform: translateY(-2px);
+}
+
+.submit-button:disabled {
+    opacity: 0.5;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   RESULT
+========================= */
+
+.result {
+    max-width: 1000px;
+
+    margin: 50px auto;
+
+    text-align: center;
+}
+
+.result h2 {
+    letter-spacing: 4px;
+
+    margin-bottom: 25px;
+}
+
+
+/* =========================
+   TICKET
+========================= */
+
+.ticket-wrapper {
+    width: 100%;
+
+    max-width: 1100px;
+
+    margin: auto;
+
+    border-radius: 15px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 25px 80px rgba(0,0,0,0.5);
+}
+
+.ticket {
+    position: relative;
+
+    width: 100%;
+
+    line-height: 0;
+}
+
+.ticket-background {
+    display: block;
+
+    width: 100%;
+
+    height: auto;
+}
+
+
+/*
+   These positions control
+   where the dynamic text appears.
+*/
+
+.ticket-name {
+    position: absolute;
+
+    top: 38%;
+
+    left: 8%;
+
+    color: white;
+
+    font-size: clamp(
+        18px,
+        4vw,
+        42px
+    );
+
+    line-height: 1.1;
+
+    font-weight: bold;
+
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+.ticket-id {
+    position: absolute;
+
+    top: 55%;
+
+    left: 8%;
+
+    color: white;
+
+    font-size: clamp(
+        12px,
+        2vw,
+        20px
+    );
+
+    line-height: 1.1;
+
+    font-weight: bold;
+}
+
+.ticket-seat {
+    position: absolute;
+
+    top: 55%;
+
+    left: 35%;
+
+    color: white;
+
+    font-size: clamp(
+        12px,
+        2vw,
+        20px
+    );
+
+    line-height: 1.1;
+
+    font-weight: bold;
+}
+
+.ticket-country {
+    position: absolute;
+
+    top: 62%;
+
+    left: 8%;
+
+    color: white;
+
+    font-size: clamp(
+        12px,
+        2vw,
+        20px
+    );
+
+    line-height: 1.1;
+}
+
+
+/* =========================
+   BUTTONS
+========================= */
+
+.download-button {
+    margin-top: 25px;
+
+    padding: 15px 30px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: white;
+
+    color: #07111f;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+.secondary-button {
+    display: block;
+
+    margin: 12px auto;
+
+    padding: 12px 25px;
+
+    border-radius: 10px;
+
+    border: 1px solid rgba(255,255,255,0.2);
+
+    background: transparent;
+
+    color: white;
+
+    cursor: pointer;
+}
+
+.error {
+    max-width: 600px;
+
+    margin: 20px auto;
+
+    padding: 14px;
+
+    border-radius: 10px;
+
+    background: rgba(255,0,0,0.1);
+
+    color: #ff9a9a;
+}
