@@ -11,7 +11,6 @@ export default function Home() {
 
     const ticketRef = useRef(null);
 
-
     const [name, setName] = useState("");
 
     const [country, setCountry] = useState("");
@@ -19,6 +18,8 @@ export default function Home() {
     const [ticket, setTicket] = useState(null);
 
     const [loading, setLoading] = useState(false);
+
+    const [saving, setSaving] = useState(false);
 
     const [error, setError] = useState("");
 
@@ -51,14 +52,15 @@ export default function Home() {
             );
 
 
-            const data = await response.json();
+            const data =
+                await response.json();
 
 
             if (!response.ok) {
 
                 throw new Error(
                     data.error ||
-                    "Registration failed"
+                    "Registration failed."
                 );
 
             }
@@ -66,11 +68,14 @@ export default function Home() {
 
             setTicket(data);
 
+
         } catch (err) {
+
+            console.error(err);
 
             setError(
                 err.message ||
-                "Something went wrong"
+                "Something went wrong."
             );
 
         } finally {
@@ -89,17 +94,91 @@ export default function Home() {
         }
 
 
+        setError("");
+
+        setSaving(true);
+
+
         try {
 
+            /*
+                Generate ticket PNG
+            */
+
             const dataUrl = await toPng(
+
                 ticketRef.current,
+
                 {
                     pixelRatio: 3,
 
                     cacheBust: true
                 }
+
             );
 
+
+            /*
+                Convert data URL to Blob
+            */
+
+            const imageResponse =
+                await fetch(dataUrl);
+
+
+            const blob =
+                await imageResponse.blob();
+
+
+            /*
+                Upload to Supabase
+            */
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "file",
+                blob,
+                `${ticket.mission_id}.png`
+            );
+
+
+            formData.append(
+                "mission_id",
+                ticket.mission_id
+            );
+
+
+            const uploadResponse =
+                await fetch(
+                    "/api/upload-ticket",
+                    {
+                        method: "POST",
+
+                        body: formData
+                    }
+                );
+
+
+            const uploadData =
+                await uploadResponse.json();
+
+
+            if (!uploadResponse.ok) {
+
+                throw new Error(
+                    uploadData.error ||
+                    "Could not save ticket."
+                );
+
+            }
+
+
+            /*
+                Download ticket
+            */
 
             const link =
                 document.createElement("a");
@@ -109,18 +188,29 @@ export default function Home() {
                 `Rocket-Mission-${ticket.mission_id}.png`;
 
 
-            link.href = dataUrl;
+            link.href =
+                dataUrl;
 
+
+            document.body.appendChild(link);
 
             link.click();
+
+            link.remove();
+
 
         } catch (err) {
 
             console.error(err);
 
             setError(
-                "Could not generate ticket image."
+                err.message ||
+                "Could not generate ticket."
             );
+
+        } finally {
+
+            setSaving(false);
 
         }
 
@@ -165,7 +255,9 @@ export default function Home() {
 
 
                     <form
-                        onSubmit={registerParticipant}
+                        onSubmit={
+                            registerParticipant
+                        }
                     >
 
                         <div className="form-group">
@@ -177,8 +269,10 @@ export default function Home() {
                             <input
                                 type="text"
                                 value={name}
-                                onChange={(e) =>
-                                    setName(e.target.value)
+                                onChange={(event) =>
+                                    setName(
+                                        event.target.value
+                                    )
                                 }
                                 placeholder="Enter your name"
                                 maxLength={50}
@@ -197,8 +291,10 @@ export default function Home() {
                             <input
                                 type="text"
                                 value={country}
-                                onChange={(e) =>
-                                    setCountry(e.target.value)
+                                onChange={(event) =>
+                                    setCountry(
+                                        event.target.value
+                                    )
                                 }
                                 placeholder="Enter your country"
                                 maxLength={40}
@@ -220,7 +316,6 @@ export default function Home() {
                             }
 
                         </button>
-
 
                     </form>
 
@@ -258,7 +353,6 @@ export default function Home() {
                                 src="/ticket-template.png"
                                 className="ticket-background"
                                 alt="Rocket Mission Ticket"
-                                crossOrigin="anonymous"
                             />
 
 
@@ -268,17 +362,20 @@ export default function Home() {
 
 
                             <div className="ticket-id">
-                                MISSION ID: {ticket.mission_id}
+                                MISSION ID:{" "}
+                                {ticket.mission_id}
                             </div>
 
 
                             <div className="ticket-seat">
-                                SEAT: {ticket.seat}
+                                SEAT:{" "}
+                                {ticket.seat}
                             </div>
 
 
                             <div className="ticket-country">
-                                COUNTRY: {ticket.country}
+                                COUNTRY:{" "}
+                                {ticket.country}
                             </div>
 
                         </div>
@@ -288,15 +385,25 @@ export default function Home() {
 
                     <button
                         className="download-button"
-                        onClick={downloadTicket}
+                        onClick={
+                            downloadTicket
+                        }
+                        disabled={saving}
                     >
-                        Download My Ticket
+
+                        {saving
+                            ? "Saving Ticket..."
+                            : "Download My Ticket"
+                        }
+
                     </button>
 
 
                     <button
                         className="secondary-button"
-                        onClick={createAnotherTicket}
+                        onClick={
+                            createAnotherTicket
+                        }
                     >
                         Create Another Ticket
                     </button>
@@ -317,5 +424,4 @@ export default function Home() {
         </main>
 
     );
-
 }
