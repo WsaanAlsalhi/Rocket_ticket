@@ -12,26 +12,11 @@ const supabase = createClient(
     {
         auth: {
             autoRefreshToken: false,
-
             persistSession: false
         }
     }
 
 );
-
-
-function generateMissionId(number) {
-
-    return `RM-${String(number).padStart(6, "0")}`;
-
-}
-
-
-function generateSeat(number) {
-
-    return `R-${String(number).padStart(3, "0")}`;
-
-}
 
 
 export async function POST(request) {
@@ -43,27 +28,22 @@ export async function POST(request) {
 
 
         const name =
-            String(body.name || "")
-                .trim();
+            String(body.name || "").trim();
 
         const country =
-            String(body.country || "")
-                .trim();
+            String(body.country || "").trim();
 
 
         if (!name) {
 
             return NextResponse.json(
-
                 {
                     error:
                         "Name is required."
                 },
-
                 {
                     status: 400
                 }
-
             );
 
         }
@@ -72,16 +52,13 @@ export async function POST(request) {
         if (!country) {
 
             return NextResponse.json(
-
                 {
                     error:
                         "Country is required."
                 },
-
                 {
                     status: 400
                 }
-
             );
 
         }
@@ -90,77 +67,38 @@ export async function POST(request) {
         if (name.length > 50) {
 
             return NextResponse.json(
-
                 {
                     error:
                         "Name is too long."
                 },
-
                 {
                     status: 400
                 }
-
             );
 
         }
 
 
-        /*
-            Get latest participant number
-        */
-
-        const { count, error: countError } =
-            await supabase
-
-                .from("rocket_participants")
-
-                .select(
-                    "*",
-                    {
-                        count: "exact",
-                        head: true
-                    }
-                );
-
-
-        if (countError) {
-
-            console.error(countError);
+        if (country.length > 40) {
 
             return NextResponse.json(
-
                 {
                     error:
-                        "Could not access database."
+                        "Country name is too long."
                 },
-
                 {
-                    status: 500
+                    status: 400
                 }
-
             );
 
         }
 
 
-        const participantNumber =
-            (count || 0) + 1;
-
-
-        const missionId =
-            generateMissionId(
-                participantNumber
-            );
-
-
-        const seat =
-            generateSeat(
-                participantNumber
-            );
-
-
         /*
-            Save participant
+            Create participant first.
+
+            The database ID is generated
+            automatically by Supabase.
         */
 
         const { data, error } =
@@ -174,9 +112,9 @@ export async function POST(request) {
 
                     country: country,
 
-                    mission_id: missionId,
+                    mission_id: "TEMP",
 
-                    seat: seat
+                    seat: "TEMP"
 
                 })
 
@@ -190,40 +128,95 @@ export async function POST(request) {
             console.error(error);
 
             return NextResponse.json(
-
                 {
                     error:
                         "Could not register participant."
                 },
-
                 {
                     status: 500
                 }
-
             );
 
         }
 
 
         /*
-            Return participant information
+            Generate permanent IDs
+            using the database ID.
         */
+
+        const missionId =
+            `RM-${String(data.id).padStart(6, "0")}`;
+
+
+        const seat =
+            `R-${String(data.id).padStart(3, "0")}`;
+
+
+        /*
+            Update record
+        */
+
+        const { data: updatedData, error: updateError } =
+            await supabase
+
+                .from("rocket_participants")
+
+                .update({
+
+                    mission_id:
+                        missionId,
+
+                    seat:
+                        seat
+
+                })
+
+                .eq(
+                    "id",
+                    data.id
+                )
+
+                .select()
+
+                .single();
+
+
+        if (updateError) {
+
+            console.error(updateError);
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Could not create mission ID."
+                },
+                {
+                    status: 500
+                }
+            );
+
+        }
+
 
         return NextResponse.json({
 
             success: true,
 
-            id: data.id,
+            id:
+                updatedData.id,
 
-            name: data.name,
+            name:
+                updatedData.name,
 
-            country: data.country,
+            country:
+                updatedData.country,
 
             mission_id:
-                data.mission_id,
+                updatedData.mission_id,
 
             seat:
-                data.seat
+                updatedData.seat
 
         });
 
@@ -232,18 +225,14 @@ export async function POST(request) {
 
         console.error(error);
 
-
         return NextResponse.json(
-
             {
                 error:
                     "Server error."
             },
-
             {
                 status: 500
             }
-
         );
 
     }
