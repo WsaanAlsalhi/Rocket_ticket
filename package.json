@@ -1,17 +1,18 @@
 {
-  "name": "rocket-mission",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.57.0",
-    "html-to-image": "^1.11.13",
-    "next": "^15.5.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  }
+    "name": "rocket-mission",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.57.0",
+        "next": "^15.5.25",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "resend": "^6.0.0",
+        "sharp": "^0.34.3"
+    }
 }
