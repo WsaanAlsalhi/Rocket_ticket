@@ -1,23 +1,16 @@
-create table public.rocket_participants (
+create table if not exists public.rocket_participants (
     id bigint generated always as identity primary key,
-
     name text not null,
-
     country text not null,
-
-    mission_id text not null unique,
-
-    seat text not null,
-
-    ticket_image_url text,
-
+    email text,
+    mission_id text unique not null,
+    seat text unique not null,
+    ticket_url text,
     created_at timestamptz not null default now()
 );
 
+alter table public.rocket_participants
+add column if not exists email text;
 
-create index rocket_participants_created_at_idx
-on public.rocket_participants(created_at desc);
-
-
-create index rocket_participants_mission_id_idx
-on public.rocket_participants(mission_id);
+alter table public.rocket_participants
+add column if not exists ticket_url text;
