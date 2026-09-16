@@ -1,0 +1,179 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f4f4;
+    color: #111;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+.container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.registration,
+.result {
+    width: 100%;
+    max-width: 650px;
+    background: white;
+    padding: 40px;
+    border-radius: 18px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+}
+
+.registration {
+    text-align: center;
+}
+
+.logo {
+    font-size: 50px;
+    margin-bottom: 10px;
+}
+
+.title {
+    margin: 0;
+    font-size: 38px;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    color: #666;
+    margin: 12px 0 35px;
+}
+
+.form-group {
+    text-align: left;
+    margin-bottom: 22px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.optional {
+    color: #777;
+    font-weight: 400;
+    font-size: 14px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    outline: none;
+}
+
+.form-group input:focus {
+    border-color: #111;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 7px;
+    color: #777;
+}
+
+.submit-button,
+.download-button,
+.secondary-button {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.submit-button {
+    background: #111;
+    color: white;
+}
+
+.submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.error {
+    margin-top: 20px;
+    padding: 12px;
+    background: #ffe5e5;
+    color: #b00020;
+    border-radius: 8px;
+}
+
+.result {
+    text-align: center;
+}
+
+.result h2 {
+    margin-top: 0;
+    letter-spacing: 2px;
+}
+
+.mission-success {
+    color: #555;
+}
+
+.ticket-wrapper {
+    margin: 30px 0;
+    overflow-x: auto;
+}
+
+.generated-ticket {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.email-success {
+    margin: 15px 0;
+    padding: 12px;
+    background: #e8f7ed;
+    color: #146c2e;
+    border-radius: 8px;
+}
+
+.download-button {
+    background: #111;
+    color: white;
+    margin-top: 10px;
+}
+
+.secondary-button {
+    background: #e8e8e8;
+    color: #111;
+    margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+    .registration,
+    .result {
+        padding: 25px 18px;
+    }
+
+    .title {
+        font-size: 30px;
+    }
+}
