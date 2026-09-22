@@ -3,22 +3,29 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request) {
   try {
+    // Read environment variables only when the API is actually called.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl) {
+      console.error("NEXT_PUBLIC_SUPABASE_URL is missing.");
+
       return NextResponse.json(
         {
-          error: "NEXT_PUBLIC_SUPABASE_URL is missing in Vercel Environment Variables.",
+          error:
+            "NEXT_PUBLIC_SUPABASE_URL is missing in Vercel Environment Variables.",
         },
         { status: 500 }
       );
     }
 
     if (!supabaseServiceRoleKey) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY is missing.");
+
       return NextResponse.json(
         {
-          error: "SUPABASE_SERVICE_ROLE_KEY is missing in Vercel Environment Variables.",
+          error:
+            "SUPABASE_SERVICE_ROLE_KEY is missing in Vercel Environment Variables.",
         },
         { status: 500 }
       );
@@ -37,7 +44,9 @@ export async function POST(request) {
 
     if (!name || !country) {
       return NextResponse.json(
-        { error: "Name and country are required." },
+        {
+          error: "Name and country are required.",
+        },
         { status: 400 }
       );
     }
@@ -45,7 +54,7 @@ export async function POST(request) {
     // Get the latest participant
     const { data: lastParticipant, error: lastError } = await supabase
       .from("rocket_participants")
-      .select("mission_id, seat")
+      .select("id, mission_id, seat")
       .order("id", { ascending: false })
       .limit(1)
       .maybeSingle();
