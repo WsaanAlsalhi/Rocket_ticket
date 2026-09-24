@@ -1,286 +1,116 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import fs from "fs/promises";
+import fs from "fs";
 import path from "path";
 
-const resend = new Resend(
-    process.env.RESEND_API_KEY
-);
-
 export async function POST(request) {
-    try {
-        const body =
-            await request.json();
+  try {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendFromEmail = process.env.RESEND_FROM_EMAIL;
 
-        const email =
-            String(
-                body.email || ""
-            ).trim();
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY is missing.");
 
-        const name =
-            String(
-                body.name || ""
-            ).trim();
+      return NextResponse.json(
+        {
+          error:
+            "RESEND_API_KEY is missing in Vercel Environment Variables.",
+        },
+        { status: 500 }
+      );
+    }
 
-        const missionId =
-            String(
-                body.mission_id || ""
-            ).trim();
+    if (!resendFromEmail) {
+      console.error("RESEND_FROM_EMAIL is missing.");
 
-        // Email is optional
-        if (!email) {
-            return NextResponse.json(
-                {
-                    success: true,
-                    skipped: true,
-                },
-                {
-                    status: 200,
-                }
-            );
-        }
+      return NextResponse.json(
+        {
+          error:
+            "RESEND_FROM_EMAIL is missing in Vercel Environment Variables.",
+        },
+        { status: 500 }
+      );
+    }
 
-        if (
-            !process.env.RESEND_API_KEY
-        ) {
-            return NextResponse.json(
-                {
-                    error:
-                        "RESEND_API_KEY is not configured.",
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
+    const resend = new Resend(resendApiKey);
 
-        if (
-            !process.env.RESEND_FROM_EMAIL
-        ) {
-            return NextResponse.json(
-                {
-                    error:
-                        "RESEND_FROM_EMAIL is not configured.",
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
+    const body = await request.json();
 
-        const stickersDirectory =
-            path.join(
-                process.cwd(),
-                "public",
-                "stickers"
-            );
+    const email = body.email?.trim();
 
-        let files = [];
+    if (!email) {
+      return NextResponse.json({
+        success: true,
+        message: "No email provided. Nothing was sent.",
+      });
+    }
 
-        try {
-            files =
-                await fs.readdir(
-                    stickersDirectory
-                );
-        } catch (error) {
-            console.error(
-                "Stickers directory error:",
-                error
-            );
+    const stickersDirectory = path.join(
+      process.cwd(),
+      "public",
+      "stickers"
+    );
 
-            return NextResponse.json(
-                {
-                    error:
-                        "Sticker files were not found."
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
+    let files = [];
 
-        const imageFiles =
-            files.filter(
-                (file) => {
-                    const extension =
-                        path.extname(
-                            file
-                        ).toLowerCase();
-
-                    return [
-                        ".png",
-                        ".jpg",
-                        ".jpeg",
-                        ".webp",
-                    ].includes(
-                        extension
-                    );
-                }
-            );
-
-        if (
-            imageFiles.length === 0
-        ) {
-            return NextResponse.json(
-                {
-                    error:
-                        "No sticker images were found."
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
-
-        const attachments = [];
-
-        for (
-            const fileName
-            of imageFiles
-        ) {
-            const filePath =
-                path.join(
-                    stickersDirectory,
-                    fileName
-                );
-
-            const fileBuffer =
-                await fs.readFile(
-                    filePath
-                );
-
-            attachments.push({
-                filename:
-                    fileName,
-                content:
-                    fileBuffer,
-            });
-        }
-
-        const {
-            data,
-            error,
-        } = await resend.emails.send({
-            from:
-                process.env
-                    .RESEND_FROM_EMAIL,
-
-            to: [email],
-
-            subject:
-                "Your Rocket Mission Stickers",
-
-            html: `
-                <div style="
-                    font-family: Arial, sans-serif;
-                    max-width: 600px;
-                    margin: auto;
-                    padding: 30px;
-                ">
-
-                    <h1>
-                        Rocket Mission
-                    </h1>
-
-                    <p>
-                        Hello ${escapeHtml(name)},
-                    </p>
-
-                    <p>
-                        Thank you for joining
-                        the Rocket Mission.
-                    </p>
-
-                    <p>
-                        Your mission ID:
-                        <strong>
-                            ${escapeHtml(missionId)}
-                        </strong>
-                    </p>
-
-                    <p>
-                        Your Rocket Mission
-                        stickers are attached
-                        to this email.
-                    </p>
-
-                    <p>
-                        Have a great mission!
-                    </p>
-
-                </div>
-            `,
-
-            attachments,
-        });
-
-        if (error) {
-            console.error(
-                "Resend error:",
-                error
-            );
-
-            return NextResponse.json(
-                {
-                    error:
-                        error.message ||
-                        "Failed to send email.",
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
-
-        return NextResponse.json(
-            {
-                success: true,
-                email_id:
-                    data?.id || null,
-            },
-            {
-                status: 200,
-            }
-        );
-
-    } catch (error) {
-        console.error(
-            "Send stickers error:",
-            error
-        );
-
-        return NextResponse.json(
-            {
-                error:
-                    "Failed to send stickers.",
-            },
-            {
-                status: 500,
-            }
+    if (fs.existsSync(stickersDirectory)) {
+      files = fs
+        .readdirSync(stickersDirectory)
+        .filter((file) =>
+          /\.(png|jpg|jpeg|webp)$/i.test(file)
         );
     }
-}
 
-function escapeHtml(value) {
-    return String(value)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
+    const attachments = files.map((file) => {
+      const filePath = path.join(
+        stickersDirectory,
+        file
+      );
+
+      return {
+        filename: file,
+        content: fs.readFileSync(filePath),
+      };
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: resendFromEmail,
+      to: email,
+      subject: "Rocket Mission — Your Mission Stickers 🚀",
+      text:
+        "Thank you for joining the Rocket Mission. Your mission stickers are attached.",
+      attachments,
+    });
+
+    if (error) {
+      console.error("Resend error:", error);
+
+      return NextResponse.json(
+        {
+          error: "Could not send email.",
+          details: error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Stickers sent successfully.",
+      emailId: data?.id || null,
+    });
+  } catch (error) {
+    console.error(
+      "Send stickers API error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error: "Failed to send stickers.",
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }
