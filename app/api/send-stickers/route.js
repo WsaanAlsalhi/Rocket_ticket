@@ -5,9 +5,11 @@ import path from "path";
 
 export async function POST(request) {
   try {
+    // Read environment variables only when the API is called.
     const resendApiKey = process.env.RESEND_API_KEY;
     const resendFromEmail = process.env.RESEND_FROM_EMAIL;
 
+    // Check Resend API key.
     if (!resendApiKey) {
       console.error("RESEND_API_KEY is missing.");
 
@@ -20,6 +22,7 @@ export async function POST(request) {
       );
     }
 
+    // Check sender email.
     if (!resendFromEmail) {
       console.error("RESEND_FROM_EMAIL is missing.");
 
@@ -32,12 +35,15 @@ export async function POST(request) {
       );
     }
 
+    // Create Resend client only after the API request starts.
     const resend = new Resend(resendApiKey);
 
+    // Read request body.
     const body = await request.json();
 
     const email = body.email?.trim();
 
+    // Email is optional.
     if (!email) {
       return NextResponse.json({
         success: true,
@@ -45,22 +51,49 @@ export async function POST(request) {
       });
     }
 
+    // Stickers folder:
+    // public/stickers/
     const stickersDirectory = path.join(
       process.cwd(),
       "public",
       "stickers"
     );
 
-    let files = [];
+    // Check if stickers folder exists.
+    if (!fs.existsSync(stickersDirectory)) {
+      console.error(
+        "Stickers directory does not exist:",
+        stickersDirectory
+      );
 
-    if (fs.existsSync(stickersDirectory)) {
-      files = fs
-        .readdirSync(stickersDirectory)
-        .filter((file) =>
-          /\.(png|jpg|jpeg|webp)$/i.test(file)
-        );
+      return NextResponse.json(
+        {
+          error:
+            "Stickers directory does not exist.",
+        },
+        { status: 500 }
+      );
     }
 
+    // Find supported image files.
+    const files = fs
+      .readdirSync(stickersDirectory)
+      .filter((file) =>
+        /\.(png|jpg|jpeg|webp)$/i.test(file)
+      );
+
+    // If no stickers exist.
+    if (files.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No sticker images were found in public/stickers.",
+        },
+        { status: 404 }
+      );
+    }
+
+    // Convert sticker files into Resend attachments.
     const attachments = files.map((file) => {
       const filePath = path.join(
         stickersDirectory,
@@ -73,17 +106,24 @@ export async function POST(request) {
       };
     });
 
-    const { data, error } = await resend.emails.send({
-      from: resendFromEmail,
-      to: email,
-      subject: "Rocket Mission — Your Mission Stickers 🚀",
-      text:
-        "Thank you for joining the Rocket Mission. Your mission stickers are attached.",
-      attachments,
-    });
+    // Send email.
+    const { data, error } =
+      await resend.emails.send({
+        from: resendFromEmail,
+        to: email,
+        subject:
+          "Rocket Mission — Your Mission Stickers",
+        text:
+          "Thank you for joining the Rocket Mission. Your mission stickers are attached.",
+        attachments,
+      });
 
+    // Resend returned an error.
     if (error) {
-      console.error("Resend error:", error);
+      console.error(
+        "Resend email error:",
+        error
+      );
 
       return NextResponse.json(
         {
@@ -94,9 +134,10 @@ export async function POST(request) {
       );
     }
 
+    // Success.
     return NextResponse.json({
       success: true,
-      message: "Stickers sent successfully.",
+      message: "Mission stickers sent successfully.",
       emailId: data?.id || null,
     });
   } catch (error) {
