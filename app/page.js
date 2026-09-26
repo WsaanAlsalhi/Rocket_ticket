@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import "./globals.css";
 
 export default function Home() {
     const [name, setName] = useState("");
@@ -23,84 +22,122 @@ export default function Home() {
         setLoading(true);
 
         try {
+            // ==========================================
             // STEP 1: Register participant
-            const registerResponse = await fetch("/api/register", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    name: name.trim(),
-                    country: country.trim(),
-                    email: email.trim() || null,
-                }),
-            });
+            // ==========================================
 
-            const registerData = await registerResponse.json();
-
-            if (!registerResponse.ok) {
-                throw new Error(
-                    registerData.error ||
-                    "Could not register participant."
-                );
-            }
-
-            // STEP 2: Generate ticket
-            const generateResponse = await fetch(
-                "/api/generate-ticket",
+            const registerResponse = await fetch(
+                "/api/register",
                 {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        name: registerData.name,
-                        country: registerData.country,
-                        mission_id: registerData.mission_id,
-                        seat: registerData.seat,
+                        name: name.trim(),
+                        country: country.trim(),
+                        email: email.trim() || null,
                     }),
                 }
             );
 
+            const registerData =
+                await registerResponse.json();
+
+            if (!registerResponse.ok) {
+                // Show the real server/Supabase error.
+                throw new Error(
+                    registerData.details ||
+                    registerData.error ||
+                    "Could not save participant."
+                );
+            }
+
+            // The register API returns:
+            // {
+            //   success: true,
+            //   participant: {...}
+            // }
+
+            const participant =
+                registerData.participant;
+
+            if (!participant) {
+                throw new Error(
+                    "Participant data was not returned from the server."
+                );
+            }
+
+            // ==========================================
+            // STEP 2: Generate ticket
+            // ==========================================
+
+            const generateResponse =
+                await fetch(
+                    "/api/generate-ticket",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+                        body: JSON.stringify({
+                            name: participant.name,
+                            country: participant.country,
+                            mission_id:
+                                participant.mission_id,
+                            seat: participant.seat,
+                        }),
+                    }
+                );
+
             if (!generateResponse.ok) {
-                const data = await generateResponse.json();
+                const data =
+                    await generateResponse.json();
 
                 throw new Error(
+                    data.details ||
                     data.error ||
                     "Could not generate ticket."
                 );
             }
 
-            const blob = await generateResponse.blob();
+            const blob =
+                await generateResponse.blob();
 
-            const imageUrl = URL.createObjectURL(blob);
+            const imageUrl =
+                URL.createObjectURL(blob);
 
-            // Show ticket immediately
-            setTicket(registerData);
+            // Show ticket immediately.
+            setTicket(participant);
             setTicketImage(imageUrl);
 
+            // ==========================================
             // STEP 3: Upload ticket to Supabase Storage
+            // ==========================================
+
             const formData = new FormData();
 
             formData.append(
                 "file",
                 blob,
-                `${registerData.mission_id}.png`
+                `${participant.mission_id}.png`
             );
 
             formData.append(
                 "mission_id",
-                registerData.mission_id
+                participant.mission_id
             );
 
             try {
-                const uploadResponse = await fetch(
-                    "/api/upload-ticket",
-                    {
-                        method: "POST",
-                        body: formData,
-                    }
-                );
+                const uploadResponse =
+                    await fetch(
+                        "/api/upload-ticket",
+                        {
+                            method: "POST",
+                            body: formData,
+                        }
+                    );
 
                 const uploadData =
                     await uploadResponse.json();
@@ -108,7 +145,7 @@ export default function Home() {
                 if (!uploadResponse.ok) {
                     console.error(
                         "Ticket upload failed:",
-                        uploadData.error
+                        uploadData
                     );
                 }
             } catch (uploadError) {
@@ -118,24 +155,31 @@ export default function Home() {
                 );
             }
 
-            // STEP 4: Send stickers only if email exists
+            // ==========================================
+            // STEP 4: Send stickers if email exists
+            // ==========================================
+
             if (email.trim()) {
                 try {
-                    const emailResponse = await fetch(
-                        "/api/send-stickers",
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({
-                                email: email.trim(),
-                                name: registerData.name,
-                                mission_id:
-                                    registerData.mission_id,
-                            }),
-                        }
-                    );
+                    const emailResponse =
+                        await fetch(
+                            "/api/send-stickers",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                                body: JSON.stringify({
+                                    email:
+                                        email.trim(),
+                                    name:
+                                        participant.name,
+                                    mission_id:
+                                        participant.mission_id,
+                                }),
+                            }
+                        );
 
                     const emailData =
                         await emailResponse.json();
@@ -146,6 +190,7 @@ export default function Home() {
                         );
                     } else {
                         setEmailMessage(
+                            emailData.details ||
                             emailData.error ||
                             "Ticket generated, but stickers could not be sent."
                         );
@@ -162,7 +207,10 @@ export default function Home() {
                 }
             }
         } catch (error) {
-            console.error(error);
+            console.error(
+                "Registration error:",
+                error
+            );
 
             setError(
                 error.message ||
@@ -228,7 +276,9 @@ export default function Home() {
                     </p>
 
                     <form
-                        onSubmit={registerParticipant}
+                        onSubmit={
+                            registerParticipant
+                        }
                     >
 
                         <div className="form-group">
@@ -282,7 +332,8 @@ export default function Home() {
                                 Email
 
                                 <span className="optional">
-                                    {" "} (Optional)
+                                    {" "}
+                                    (Optional)
                                 </span>
 
                             </label>
