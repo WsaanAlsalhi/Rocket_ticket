@@ -12,38 +12,6 @@ function escapeXml(value) {
         .replace(/'/g, "&apos;");
 }
 
-function containsArabic(text) {
-    return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(
-        String(text)
-    );
-}
-
-function createText({
-    text,
-    x,
-    y,
-    fontSize = 22,
-    anchor = "start",
-}) {
-    const value = escapeXml(text);
-
-    const isArabic = containsArabic(text);
-
-    return `
-        <text
-            x="${x}"
-            y="${y}"
-            fill="#000000"
-            font-family="DejaVu Sans, Arial, Helvetica, sans-serif"
-            font-size="${fontSize}px"
-            font-weight="600"
-            text-anchor="${anchor}"
-            dominant-baseline="alphabetic"
-            ${isArabic ? 'direction="rtl" unicode-bidi="plaintext"' : ""}
-        >${value}</text>
-    `;
-}
-
 export async function POST(request) {
     try {
         const body = await request.json();
@@ -63,9 +31,9 @@ export async function POST(request) {
             );
         }
 
-        // --------------------------------------------------
+        // ---------------------------------------------
         // Ticket template
-        // --------------------------------------------------
+        // ---------------------------------------------
 
         const templatePath = path.join(
             process.cwd(),
@@ -76,17 +44,15 @@ export async function POST(request) {
         if (!fs.existsSync(templatePath)) {
             return NextResponse.json(
                 {
-                    error:
-                        "Ticket template was not found.",
-                    details: templatePath,
+                    error: "Ticket template was not found.",
                 },
                 { status: 500 }
             );
         }
 
-        // --------------------------------------------------
-        // Read template dimensions
-        // --------------------------------------------------
+        // ---------------------------------------------
+        // Get template size
+        // ---------------------------------------------
 
         const metadata =
             await sharp(templatePath).metadata();
@@ -94,122 +60,120 @@ export async function POST(request) {
         const width = metadata.width || 1774;
         const height = metadata.height || 887;
 
-        // --------------------------------------------------
-        // Text layer
-        // --------------------------------------------------
+        // ---------------------------------------------
+        // SVG text layer
+        // ---------------------------------------------
         //
-        // Coordinates are based on the actual ticket
-        // design you provided.
+        // IMPORTANT:
+        // Use generic "sans-serif".
+        // Do NOT use DejaVu Sans or Arial here because
+        // those fonts may not exist in the Vercel runtime.
         //
-        // Ticket size:
-        // 1774 x 887
-        //
-        // --------------------------------------------------
 
         const textLayer = `
         <svg
+            xmlns="http://www.w3.org/2000/svg"
             width="${width}"
             height="${height}"
             viewBox="0 0 ${width} ${height}"
-            xmlns="http://www.w3.org/2000/svg"
         >
 
-            <!-- ========================================= -->
             <!-- PASSENGER -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: name,
-                x: 1035,
-                y: 405,
-                fontSize: 25,
-                anchor: "middle",
-            })}
+            <text
+                x="1035"
+                y="405"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="25"
+                font-weight="600"
+            >${escapeXml(name)}</text>
 
 
-            <!-- ========================================= -->
             <!-- MISSION ID -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: missionId,
-                x: 625,
-                y: 535,
-                fontSize: 20,
-                anchor: "middle",
-            })}
+            <text
+                x="625"
+                y="535"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="20"
+                font-weight="600"
+            >${escapeXml(missionId)}</text>
 
 
-            <!-- ========================================= -->
             <!-- SEAT -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: seat,
-                x: 905,
-                y: 535,
-                fontSize: 20,
-                anchor: "middle",
-            })}
+            <text
+                x="905"
+                y="535"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="20"
+                font-weight="600"
+            >${escapeXml(seat)}</text>
 
 
-            <!-- ========================================= -->
             <!-- TEAM -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: "PATRICK",
-                x: 1170,
-                y: 535,
-                fontSize: 20,
-                anchor: "middle",
-            })}
+            <text
+                x="1170"
+                y="535"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="20"
+                font-weight="600"
+            >PATRICK</text>
 
 
-            <!-- ========================================= -->
             <!-- DESTINATION -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: country,
-                x: 625,
-                y: 665,
-                fontSize: 20,
-                anchor: "middle",
-            })}
+            <text
+                x="625"
+                y="665"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="20"
+                font-weight="600"
+            >${escapeXml(country)}</text>
 
 
-            <!-- ========================================= -->
             <!-- LAUNCH DATE -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: "2026",
-                x: 885,
-                y: 665,
-                fontSize: 20,
-                anchor: "middle",
-            })}
+            <text
+                x="885"
+                y="665"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="20"
+                font-weight="600"
+            >2026</text>
 
 
-            <!-- ========================================= -->
             <!-- STATUS -->
-            <!-- ========================================= -->
 
-            ${createText({
-                text: "CLEARED",
-                x: 1170,
-                y: 665,
-                fontSize: 20,
-                anchor: "middle",
-            })}
+            <text
+                x="1170"
+                y="665"
+                text-anchor="middle"
+                fill="#000000"
+                font-family="sans-serif"
+                font-size="20"
+                font-weight="600"
+            >CLEARED</text>
 
         </svg>
         `;
 
-        // --------------------------------------------------
-        // Generate final PNG
-        // --------------------------------------------------
+        // ---------------------------------------------
+        // Composite text over ticket
+        // ---------------------------------------------
 
         const output = await sharp(templatePath)
             .composite([
@@ -222,9 +186,9 @@ export async function POST(request) {
             .png()
             .toBuffer();
 
-        // --------------------------------------------------
-        // Return generated ticket
-        // --------------------------------------------------
+        // ---------------------------------------------
+        // Return PNG
+        // ---------------------------------------------
 
         return new NextResponse(output, {
             status: 200,
@@ -244,8 +208,7 @@ export async function POST(request) {
 
         return NextResponse.json(
             {
-                error:
-                    "Could not generate ticket.",
+                error: "Could not generate ticket.",
                 details: error.message,
             },
             { status: 500 }
