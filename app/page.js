@@ -45,7 +45,6 @@ export default function Home() {
                 await registerResponse.json();
 
             if (!registerResponse.ok) {
-                // Show the real server/Supabase error.
                 throw new Error(
                     registerData.details ||
                     registerData.error ||
@@ -275,6 +274,10 @@ export default function Home() {
                         Become part of the Rocket Mission.
                     </p>
 
+                    <p className="form-note">
+                        Note: Please enter your name and country in English.
+                    </p>
+
                     <form
                         onSubmit={
                             registerParticipant
@@ -296,7 +299,7 @@ export default function Home() {
                                         event.target.value
                                     )
                                 }
-                                placeholder="Enter your name"
+                                placeholder="Enter your name in English"
                                 maxLength={50}
                                 required
                             />
@@ -318,7 +321,7 @@ export default function Home() {
                                         event.target.value
                                     )
                                 }
-                                placeholder="Enter your country"
+                                placeholder="Enter your country in English"
                                 maxLength={40}
                                 required
                             />
@@ -328,14 +331,12 @@ export default function Home() {
                         <div className="form-group">
 
                             <label htmlFor="email">
-
                                 Email
 
                                 <span className="optional">
                                     {" "}
                                     (Optional)
                                 </span>
-
                             </label>
 
                             <input
