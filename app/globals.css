@@ -10,170 +10,433 @@ body {
 }
 
 body {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
     background: #f4f4f4;
     color: #111;
 }
 
-button,
-input {
-    font: inherit;
-}
+/* ==========================================
+   Main Container
+   ========================================== */
 
 .container {
+    width: 100%;
+    max-width: 920px;
     min-height: 100vh;
+    margin: 0 auto;
+    padding: 40px 24px;
     display: flex;
     justify-content: center;
-    align-items: center;
-    padding: 40px 20px;
+    align-items: flex-start;
 }
 
-.registration,
-.result {
-    width: 100%;
-    max-width: 650px;
-    background: white;
-    padding: 40px;
-    border-radius: 18px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-}
+/* ==========================================
+   Registration Card
+   ========================================== */
 
 .registration {
-    text-align: center;
+    width: 100%;
+    max-width: 820px;
+    background: #ffffff;
+    padding: 42px 56px 48px;
+    border-radius: 18px;
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
+/* ==========================================
+   Logo
+   ========================================== */
+
 .logo {
-    font-size: 50px;
-    margin-bottom: 10px;
+    text-align: center;
+    font-size: 42px;
+    margin-bottom: 8px;
 }
+
+/* ==========================================
+   Title
+   ========================================== */
 
 .title {
     margin: 0;
-    font-size: 38px;
+    text-align: center;
+    font-size: 52px;
+    font-weight: 800;
     letter-spacing: 2px;
+    line-height: 1.1;
 }
 
 .subtitle {
+    margin: 18px 0 32px;
+    text-align: center;
+    font-size: 21px;
     color: #666;
-    margin: 12px 0 35px;
+}
+
+/* ==========================================
+   English Note
+   ========================================== */
+
+.form-note {
+    margin: 0 0 28px;
+    padding: 12px 16px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #555;
+    background: #f7f7f7;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+}
+
+/* ==========================================
+   Form
+   ========================================== */
+
+form {
+    width: 100%;
 }
 
 .form-group {
-    text-align: left;
-    margin-bottom: 22px;
+    margin-bottom: 26px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    font-size: 18px;
     font-weight: 700;
 }
 
 .optional {
-    color: #777;
     font-weight: 400;
-    font-size: 14px;
+    color: #777;
+    font-size: 15px;
 }
 
 .form-group input {
     width: 100%;
-    padding: 14px 16px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
+    height: 68px;
+    padding: 0 20px;
+    border: 1px solid #cfcfcf;
+    border-radius: 14px;
+    background: #eef4ff;
+    color: #111;
+    font-size: 18px;
     outline: none;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
 }
 
 .form-group input:focus {
     border-color: #111;
+    background: #ffffff;
+    box-shadow:
+        0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+
+.form-group input::placeholder {
+    color: #777;
 }
 
 .form-group small {
     display: block;
-    margin-top: 7px;
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.4;
     color: #777;
 }
 
-.submit-button,
-.download-button,
-.secondary-button {
-    width: 100%;
-    padding: 15px;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-weight: 700;
-}
+/* ==========================================
+   Submit Button
+   ========================================== */
 
 .submit-button {
+    width: 100%;
+    height: 70px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 14px;
     background: #111;
-    color: white;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.submit-button:hover {
+    background: #222;
+    transform: translateY(-1px);
+}
+
+.submit-button:active {
+    transform: translateY(0);
 }
 
 .submit-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
 }
+
+/* ==========================================
+   Error Message
+   ========================================== */
 
 .error {
-    margin-top: 20px;
-    padding: 12px;
-    background: #ffe5e5;
-    color: #b00020;
-    border-radius: 8px;
+    width: 100%;
+    margin-top: 28px;
+    padding: 16px 18px;
+    border-radius: 10px;
+    background: #ffe4e4;
+    border: 1px solid #ffc4c4;
+    color: #c00000;
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: center;
+    word-break: break-word;
 }
 
+/* ==========================================
+   Result Section
+   ========================================== */
+
 .result {
+    width: 100%;
+    max-width: 900px;
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 18px;
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.08);
     text-align: center;
 }
 
 .result h2 {
-    margin-top: 0;
-    letter-spacing: 2px;
+    margin: 0;
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: 1px;
 }
 
 .mission-success {
-    color: #555;
+    margin: 12px 0 28px;
+    color: #666;
+    font-size: 17px;
 }
 
+/* ==========================================
+   Ticket
+   ========================================== */
+
 .ticket-wrapper {
-    margin: 30px 0;
-    overflow-x: auto;
+    width: 100%;
+    margin: 0 auto 28px;
+    overflow: hidden;
+    border-radius: 10px;
 }
 
 .generated-ticket {
     display: block;
     width: 100%;
     height: auto;
-    border-radius: 8px;
+    border-radius: 10px;
 }
+
+/* ==========================================
+   Email Message
+   ========================================== */
 
 .email-success {
-    margin: 15px 0;
-    padding: 12px;
-    background: #e8f7ed;
-    color: #146c2e;
-    border-radius: 8px;
+    margin: 0 auto 24px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    background: #eef8ee;
+    border: 1px solid #cce8cc;
+    color: #236b23;
+    font-size: 15px;
+    line-height: 1.5;
 }
+
+/* ==========================================
+   Download Button
+   ========================================== */
 
 .download-button {
+    width: 100%;
+    height: 60px;
+    margin-bottom: 14px;
+    border: none;
+    border-radius: 12px;
     background: #111;
-    color: white;
-    margin-top: 10px;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
 }
+
+.download-button:hover {
+    background: #222;
+    transform: translateY(-1px);
+}
+
+/* ==========================================
+   Secondary Button
+   ========================================== */
 
 .secondary-button {
-    background: #e8e8e8;
+    width: 100%;
+    height: 58px;
+    border: 1px solid #cfcfcf;
+    border-radius: 12px;
+    background: #ffffff;
     color: #111;
-    margin-top: 12px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
 }
 
-@media (max-width: 600px) {
-    .registration,
-    .result {
-        padding: 25px 18px;
+.secondary-button:hover {
+    background: #f5f5f5;
+    border-color: #999;
+}
+
+/* ==========================================
+   Responsive - Tablet
+   ========================================== */
+
+@media (max-width: 768px) {
+    .container {
+        padding: 24px 16px;
+    }
+
+    .registration {
+        padding: 34px 28px 38px;
     }
 
     .title {
+        font-size: 40px;
+    }
+
+    .subtitle {
+        font-size: 18px;
+    }
+
+    .form-group input {
+        height: 60px;
+        font-size: 17px;
+    }
+
+    .submit-button {
+        height: 62px;
+        font-size: 18px;
+    }
+
+    .result {
+        padding: 28px 20px;
+    }
+
+    .result h2 {
         font-size: 30px;
+    }
+}
+
+/* ==========================================
+   Responsive - Mobile
+   ========================================== */
+
+@media (max-width: 480px) {
+    .container {
+        padding: 14px 10px;
+    }
+
+    .registration {
+        padding: 28px 18px 30px;
+        border-radius: 14px;
+    }
+
+    .logo {
+        font-size: 34px;
+    }
+
+    .title {
+        font-size: 31px;
+        letter-spacing: 1px;
+    }
+
+    .subtitle {
+        margin-top: 14px;
+        margin-bottom: 24px;
+        font-size: 16px;
+    }
+
+    .form-note {
+        margin-bottom: 22px;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .form-group {
+        margin-bottom: 21px;
+    }
+
+    .form-group label {
+        font-size: 16px;
+    }
+
+    .form-group input {
+        height: 56px;
+        padding: 0 16px;
+        border-radius: 11px;
+        font-size: 16px;
+    }
+
+    .form-group small {
+        font-size: 13px;
+    }
+
+    .submit-button {
+        height: 58px;
+        border-radius: 11px;
+        font-size: 17px;
+    }
+
+    .result {
+        padding: 24px 14px;
+        border-radius: 14px;
+    }
+
+    .result h2 {
+        font-size: 26px;
+    }
+
+    .mission-success {
+        font-size: 15px;
+    }
+
+    .download-button {
+        height: 56px;
+        font-size: 16px;
+    }
+
+    .secondary-button {
+        height: 54px;
+        font-size: 16px;
     }
 }
