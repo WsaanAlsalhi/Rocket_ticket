@@ -12,6 +12,38 @@ function escapeXml(value) {
         .replace(/'/g, "&apos;");
 }
 
+function containsArabic(text) {
+    return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(
+        String(text)
+    );
+}
+
+function createText({
+    text,
+    x,
+    y,
+    fontSize = 22,
+    anchor = "start",
+}) {
+    const value = escapeXml(text);
+
+    const isArabic = containsArabic(text);
+
+    return `
+        <text
+            x="${x}"
+            y="${y}"
+            fill="#000000"
+            font-family="DejaVu Sans, Arial, Helvetica, sans-serif"
+            font-size="${fontSize}px"
+            font-weight="600"
+            text-anchor="${anchor}"
+            dominant-baseline="alphabetic"
+            ${isArabic ? 'direction="rtl" unicode-bidi="plaintext"' : ""}
+        >${value}</text>
+    `;
+}
+
 export async function POST(request) {
     try {
         const body = await request.json();
@@ -31,14 +63,16 @@ export async function POST(request) {
             );
         }
 
-        // Template location
+        // --------------------------------------------------
+        // Ticket template
+        // --------------------------------------------------
+
         const templatePath = path.join(
             process.cwd(),
             "public",
             "ticket-template.png"
         );
 
-        // Check template exists
         if (!fs.existsSync(templatePath)) {
             return NextResponse.json(
                 {
@@ -50,25 +84,27 @@ export async function POST(request) {
             );
         }
 
-        /*
-         * Read the template.
-         *
-         * The SVG text is rendered as a transparent layer
-         * on top of the original ticket image.
-         */
-        const template = sharp(templatePath);
+        // --------------------------------------------------
+        // Read template dimensions
+        // --------------------------------------------------
 
-        const metadata = await template.metadata();
+        const metadata =
+            await sharp(templatePath).metadata();
 
         const width = metadata.width || 1774;
         const height = metadata.height || 887;
 
-        /*
-         * IMPORTANT:
-         * Use text-anchor="start" and explicit font-family.
-         * This avoids problems where SVG text is generated
-         * but does not appear correctly in Sharp.
-         */
+        // --------------------------------------------------
+        // Text layer
+        // --------------------------------------------------
+        //
+        // Coordinates are based on the actual ticket
+        // design you provided.
+        //
+        // Ticket size:
+        // 1774 x 887
+        //
+        // --------------------------------------------------
 
         const textLayer = `
         <svg
@@ -78,96 +114,103 @@ export async function POST(request) {
             xmlns="http://www.w3.org/2000/svg"
         >
 
-            <!-- Passenger Name -->
-            <text
-                x="925"
-                y="405"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="38px"
-                font-weight="600"
-                text-anchor="start"
-            >${escapeXml(name)}</text>
+            <!-- ========================================= -->
+            <!-- PASSENGER -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: name,
+                x: 1035,
+                y: 405,
+                fontSize: 25,
+                anchor: "middle",
+            })}
 
 
-            <!-- Mission ID -->
-            <text
-                x="625"
-                y="535"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18px"
-                font-weight="600"
-                text-anchor="start"
-            >${escapeXml(missionId)}</text>
+            <!-- ========================================= -->
+            <!-- MISSION ID -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: missionId,
+                x: 625,
+                y: 535,
+                fontSize: 20,
+                anchor: "middle",
+            })}
 
 
-            <!-- Seat -->
-            <text
-                x="905"
-                y="535"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18px"
-                font-weight="600"
-                text-anchor="start"
-            >${escapeXml(seat)}</text>
+            <!-- ========================================= -->
+            <!-- SEAT -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: seat,
+                x: 905,
+                y: 535,
+                fontSize: 20,
+                anchor: "middle",
+            })}
 
 
-            <!-- Passenger Type -->
-            <text
-                x="1150"
-                y="535"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18px"
-                font-weight="600"
-                text-anchor="start"
-            >PATRICK</text>
+            <!-- ========================================= -->
+            <!-- TEAM -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: "PATRICK",
+                x: 1170,
+                y: 535,
+                fontSize: 20,
+                anchor: "middle",
+            })}
 
 
-            <!-- Country -->
-            <text
-                x="610"
-                y="665"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18px"
-                font-weight="600"
-                text-anchor="start"
-            >${escapeXml(country)}</text>
+            <!-- ========================================= -->
+            <!-- DESTINATION -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: country,
+                x: 625,
+                y: 665,
+                fontSize: 20,
+                anchor: "middle",
+            })}
 
 
-            <!-- Year -->
-            <text
-                x="885"
-                y="665"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18px"
-                font-weight="600"
-                text-anchor="start"
-            >2026</text>
+            <!-- ========================================= -->
+            <!-- LAUNCH DATE -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: "2026",
+                x: 885,
+                y: 665,
+                fontSize: 20,
+                anchor: "middle",
+            })}
 
 
-            <!-- Status -->
-            <text
-                x="1170"
-                y="665"
-                fill="#000000"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18px"
-                font-weight="600"
-                text-anchor="start"
-            >CLEARED</text>
+            <!-- ========================================= -->
+            <!-- STATUS -->
+            <!-- ========================================= -->
+
+            ${createText({
+                text: "CLEARED",
+                x: 1170,
+                y: 665,
+                fontSize: 20,
+                anchor: "middle",
+            })}
 
         </svg>
         `;
 
-        /*
-         * Composite the transparent SVG text layer
-         * over the original ticket template.
-         */
+        // --------------------------------------------------
+        // Generate final PNG
+        // --------------------------------------------------
+
         const output = await sharp(templatePath)
             .composite([
                 {
@@ -179,14 +222,20 @@ export async function POST(request) {
             .png()
             .toBuffer();
 
+        // --------------------------------------------------
+        // Return generated ticket
+        // --------------------------------------------------
+
         return new NextResponse(output, {
             status: 200,
             headers: {
                 "Content-Type": "image/png",
-                "Content-Disposition": `inline; filename="${missionId}.png"`,
+                "Content-Disposition":
+                    `inline; filename="${missionId}.png"`,
                 "Cache-Control": "no-store",
             },
         });
+
     } catch (error) {
         console.error(
             "Generate ticket error:",
@@ -195,7 +244,8 @@ export async function POST(request) {
 
         return NextResponse.json(
             {
-                error: "Could not generate ticket.",
+                error:
+                    "Could not generate ticket.",
                 details: error.message,
             },
             { status: 500 }
