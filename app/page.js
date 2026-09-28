@@ -1,20 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
-    const [name, setName] = useState("");
-    const [country, setCountry] = useState("");
-    const [email, setEmail] = useState("");
+    const [name, setName] =
+        useState("");
 
-    const [ticket, setTicket] = useState(null);
-    const [ticketImage, setTicketImage] = useState(null);
+    const [country, setCountry] =
+        useState("");
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [emailMessage, setEmailMessage] = useState("");
+    const [email, setEmail] =
+        useState("");
 
-    async function registerParticipant(event) {
+    const [ticket, setTicket] =
+        useState(null);
+
+    const [ticketImage, setTicketImage] =
+        useState(null);
+
+    const [loading, setLoading] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
+
+    const [emailMessage, setEmailMessage] =
+        useState("");
+
+    useEffect(() => {
+        return () => {
+            if (ticketImage) {
+                URL.revokeObjectURL(
+                    ticketImage
+                );
+            }
+        };
+    }, [ticketImage]);
+
+    async function registerParticipant(
+        event
+    ) {
         event.preventDefault();
 
         setError("");
@@ -22,197 +47,267 @@ export default function Home() {
         setLoading(true);
 
         try {
-            // ==========================================
-            // STEP 1: Register participant
-            // ==========================================
+            /*
+             * STEP 1
+             * Register participant.
+             */
 
-            const registerResponse = await fetch(
-                "/api/register",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        name: name.trim(),
-                        country: country.trim(),
-                        email: email.trim() || null,
-                    }),
-                }
-            );
+            const registerResponse =
+                await fetch(
+                    "/api/register",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body: JSON.stringify({
+                            name:
+                                name.trim(),
+
+                            country:
+                                country.trim(),
+
+                            email:
+                                email.trim() ||
+                                null,
+                        }),
+                    }
+                );
 
             const registerData =
                 await registerResponse.json();
 
-            if (!registerResponse.ok) {
+            if (
+                !registerResponse.ok
+            ) {
                 throw new Error(
                     registerData.details ||
                     registerData.error ||
-                    "Could not save participant."
+                    "Could not register participant."
                 );
             }
-
-            // The register API returns:
-            // {
-            //   success: true,
-            //   participant: {...}
-            // }
 
             const participant =
                 registerData.participant;
 
             if (!participant) {
                 throw new Error(
-                    "Participant data was not returned from the server."
+                    "Participant data was not returned."
                 );
             }
 
-            // ==========================================
-            // STEP 2: Generate ticket
-            // ==========================================
+            /*
+             * STEP 2
+             * Generate ticket.
+             */
 
             const generateResponse =
                 await fetch(
                     "/api/generate-ticket",
                     {
                         method: "POST",
+
                         headers: {
                             "Content-Type":
                                 "application/json",
                         },
+
                         body: JSON.stringify({
-                            name: participant.name,
-                            country: participant.country,
+                            name:
+                                participant.name,
+
+                            country:
+                                participant.country,
+
                             mission_id:
                                 participant.mission_id,
-                            seat: participant.seat,
+
+                            seat:
+                                participant.seat,
                         }),
                     }
                 );
 
-            if (!generateResponse.ok) {
-                const data =
-                    await generateResponse.json();
+            if (
+                !generateResponse.ok
+            ) {
+                let generateData = {};
+
+                try {
+                    generateData =
+                        await generateResponse.json();
+                } catch {}
 
                 throw new Error(
-                    data.details ||
-                    data.error ||
+                    generateData.details ||
+                    generateData.error ||
                     "Could not generate ticket."
                 );
             }
 
+            /*
+             * Convert generated PNG
+             * into browser image.
+             */
+
             const blob =
                 await generateResponse.blob();
 
+            if (
+                !blob ||
+                blob.size === 0
+            ) {
+                throw new Error(
+                    "Generated ticket is empty."
+                );
+            }
+
             const imageUrl =
-                URL.createObjectURL(blob);
+                URL.createObjectURL(
+                    blob
+                );
 
-            // Show ticket immediately.
-            setTicket(participant);
-            setTicketImage(imageUrl);
-
-            // ==========================================
-            // STEP 3: Upload ticket to Supabase Storage
-            // ==========================================
-
-            const formData = new FormData();
-
-            formData.append(
-                "file",
-                blob,
-                `${participant.mission_id}.png`
+            setTicket(
+                participant
             );
 
-            formData.append(
-                "mission_id",
-                participant.mission_id
+            setTicketImage(
+                imageUrl
             );
+
+            /*
+             * STEP 3
+             * Upload ticket to Supabase.
+             *
+             * Failure here should NOT
+             * remove the ticket from screen.
+             */
 
             try {
+                const formData =
+                    new FormData();
+
+                formData.append(
+                    "file",
+                    blob,
+                    `${participant.mission_id}.png`
+                );
+
+                formData.append(
+                    "mission_id",
+                    participant.mission_id
+                );
+
                 const uploadResponse =
                     await fetch(
                         "/api/upload-ticket",
                         {
                             method: "POST",
-                            body: formData,
+                            body:
+                                formData,
                         }
                     );
 
                 const uploadData =
                     await uploadResponse.json();
 
-                if (!uploadResponse.ok) {
+                if (
+                    !uploadResponse.ok
+                ) {
                     console.error(
                         "Ticket upload failed:",
                         uploadData
                     );
                 }
-            } catch (uploadError) {
+            } catch (
+                uploadError
+            ) {
                 console.error(
                     "Ticket upload error:",
                     uploadError
                 );
             }
 
-            // ==========================================
-            // STEP 4: Send stickers if email exists
-            // ==========================================
+            /*
+             * STEP 4
+             * Send stickers ONLY if
+             * an email was provided.
+             */
 
-            if (email.trim()) {
+            if (
+                email.trim()
+            ) {
                 try {
                     const emailResponse =
                         await fetch(
                             "/api/send-stickers",
                             {
                                 method: "POST",
+
                                 headers: {
                                     "Content-Type":
                                         "application/json",
                                 },
-                                body: JSON.stringify({
-                                    email:
-                                        email.trim(),
-                                    name:
-                                        participant.name,
-                                    mission_id:
-                                        participant.mission_id,
-                                }),
+
+                                body:
+                                    JSON.stringify({
+                                        email:
+                                            email.trim(),
+
+                                        name:
+                                            participant.name,
+
+                                        mission_id:
+                                            participant.mission_id,
+                                    }),
                             }
                         );
 
                     const emailData =
                         await emailResponse.json();
 
-                    if (emailResponse.ok) {
+                    if (
+                        emailResponse.ok &&
+                        emailData.sent
+                    ) {
                         setEmailMessage(
-                            "Your stickers have been sent to your email."
+                            "Your mission stickers have been sent to your email."
                         );
                     } else {
                         setEmailMessage(
                             emailData.details ||
                             emailData.error ||
-                            "Ticket generated, but stickers could not be sent."
+                            "Ticket generated, but the stickers could not be sent."
                         );
                     }
-                } catch (emailError) {
+                } catch (
+                    emailError
+                ) {
                     console.error(
-                        "Email error:",
+                        "Email request failed:",
                         emailError
                     );
 
                     setEmailMessage(
-                        "Ticket generated successfully, but stickers could not be sent."
+                        "Ticket generated successfully, but the stickers could not be sent."
                     );
                 }
+            } else {
+                setEmailMessage("");
             }
-        } catch (error) {
+        } catch (
+            registrationError
+        ) {
             console.error(
-                "Registration error:",
-                error
+                "Registration process failed:",
+                registrationError
             );
 
             setError(
-                error.message ||
+                registrationError?.message ||
                 "Something went wrong."
             );
         } finally {
@@ -221,19 +316,27 @@ export default function Home() {
     }
 
     function downloadTicket() {
-        if (!ticketImage || !ticket) {
+        if (
+            !ticketImage ||
+            !ticket
+        ) {
             return;
         }
 
         const link =
-            document.createElement("a");
+            document.createElement(
+                "a"
+            );
 
-        link.href = ticketImage;
+        link.href =
+            ticketImage;
 
         link.download =
             `Rocket-Mission-${ticket.mission_id}.png`;
 
-        document.body.appendChild(link);
+        document.body.appendChild(
+            link
+        );
 
         link.click();
 
@@ -242,7 +345,9 @@ export default function Home() {
 
     function createAnotherTicket() {
         if (ticketImage) {
-            URL.revokeObjectURL(ticketImage);
+            URL.revokeObjectURL(
+                ticketImage
+            );
         }
 
         setName("");
@@ -352,8 +457,7 @@ export default function Home() {
                             />
 
                             <small>
-                                Add your email to receive
-                                Rocket Mission stickers.
+                                Add your email to receive Rocket Mission stickers.
                             </small>
 
                         </div>
@@ -408,14 +512,18 @@ export default function Home() {
 
                     <button
                         className="download-button"
-                        onClick={downloadTicket}
+                        onClick={
+                            downloadTicket
+                        }
                     >
                         Download My Ticket
                     </button>
 
                     <button
                         className="secondary-button"
-                        onClick={createAnotherTicket}
+                        onClick={
+                            createAnotherTicket
+                        }
                     >
                         Create Another Ticket
                     </button>
