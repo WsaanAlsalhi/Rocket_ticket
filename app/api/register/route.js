@@ -1,73 +1,58 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+
 export async function POST(request) {
     try {
-        // -----------------------------------------
-        // Environment variables
-        // -----------------------------------------
-
         const supabaseUrl =
             process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-        const supabaseServiceRoleKey =
+        const serviceRoleKey =
             process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!supabaseUrl) {
-            console.error(
-                "NEXT_PUBLIC_SUPABASE_URL is missing."
-            );
-
             return NextResponse.json(
                 {
                     error:
-                        "NEXT_PUBLIC_SUPABASE_URL is missing in Vercel Environment Variables.",
+                        "NEXT_PUBLIC_SUPABASE_URL is missing.",
                 },
                 { status: 500 }
             );
         }
 
-        if (!supabaseServiceRoleKey) {
-            console.error(
-                "SUPABASE_SERVICE_ROLE_KEY is missing."
-            );
-
+        if (!serviceRoleKey) {
             return NextResponse.json(
                 {
                     error:
-                        "SUPABASE_SERVICE_ROLE_KEY is missing in Vercel Environment Variables.",
+                        "SUPABASE_SERVICE_ROLE_KEY is missing.",
                 },
                 { status: 500 }
             );
         }
-
-        // -----------------------------------------
-        // Supabase client
-        // -----------------------------------------
 
         const supabase = createClient(
             supabaseUrl,
-            supabaseServiceRoleKey
+            serviceRoleKey
         );
-
-        // -----------------------------------------
-        // Read request
-        // -----------------------------------------
 
         const body = await request.json();
 
         const name =
-            body.name?.trim();
+            typeof body.name === "string"
+                ? body.name.trim()
+                : "";
 
         const country =
-            body.country?.trim();
+            typeof body.country === "string"
+                ? body.country.trim()
+                : "";
 
         const email =
-            body.email?.trim() || null;
-
-        // -----------------------------------------
-        // Validate
-        // -----------------------------------------
+            typeof body.email === "string" &&
+            body.email.trim()
+                ? body.email.trim()
+                : null;
 
         if (!name || !country) {
             return NextResponse.json(
@@ -79,132 +64,84 @@ export async function POST(request) {
             );
         }
 
-        // -----------------------------------------
-        // Get latest participant
-        // -----------------------------------------
+        /*
+         * Get the latest participant.
+         * We use the database ID to create the next
+         * mission number.
+         */
 
-        const {
-            data: lastParticipant,
-            error: lastError,
-        } = await supabase
-            .from("rocket_participants")
-            .select(
-                "id, mission_id, seat"
-            )
-            .order("id", {
-                ascending: false,
-            })
-            .limit(1)
-            .maybeSingle();
+        const { data: lastParticipant, error: readError } =
+            await supabase
+                .from("rocket_participants")
+                .select("id")
+                .order("id", {
+                    ascending: false,
+                })
+                .limit(1)
+                .maybeSingle();
 
-        if (lastError) {
+        if (readError) {
             console.error(
                 "Supabase read error:",
-                lastError
+                readError
             );
 
             return NextResponse.json(
                 {
                     error:
-                        "Could not read participant data from Supabase.",
-                    details:
-                        lastError.message,
+                        "Could not read participant data.",
+                    details: readError.message,
                 },
                 { status: 500 }
             );
         }
 
-        // -----------------------------------------
-        // Generate next mission number
-        // -----------------------------------------
-
-        let nextNumber = 1;
-
-        if (lastParticipant?.mission_id) {
-            const match =
-                lastParticipant.mission_id.match(
-                    /\d+/
-                );
-
-            if (match) {
-                nextNumber =
-                    parseInt(
-                        match[0],
-                        10
-                    ) + 1;
-            }
-        }
-
-        // -----------------------------------------
-        // Mission ID
-        // -----------------------------------------
+        const nextNumber =
+            (lastParticipant?.id || 0) + 1;
 
         const missionId =
-            `RM-${String(nextNumber).padStart(
-                4,
-                "0"
-            )}`;
-
-        // -----------------------------------------
-        // Seat
-        // -----------------------------------------
+            `RM-${String(nextNumber).padStart(4, "0")}`;
 
         const seat =
-            `A-${String(nextNumber).padStart(
-                3,
-                "0"
-            )}`;
+            `A-${String(nextNumber).padStart(3, "0")}`;
 
-        // -----------------------------------------
-        // Insert participant
-        // -----------------------------------------
+        /*
+         * Save participant.
+         */
 
-        const {
-            data,
-            error,
-        } = await supabase
-            .from(
-                "rocket_participants"
-            )
-            .insert([
-                {
+        const { data, error: insertError } =
+            await supabase
+                .from("rocket_participants")
+                .insert({
                     name,
                     country,
                     email,
-                    mission_id:
-                        missionId,
+                    mission_id: missionId,
                     seat,
-                },
-            ])
-            .select()
-            .single();
+                })
+                .select()
+                .single();
 
-        if (error) {
+        if (insertError) {
             console.error(
                 "Supabase insert error:",
-                error
+                insertError
             );
 
             return NextResponse.json(
                 {
                     error:
                         "Could not save participant.",
-                    details:
-                        error.message,
+                    details: insertError.message,
                 },
                 { status: 500 }
             );
         }
 
-        // -----------------------------------------
-        // Success
-        // -----------------------------------------
-
         return NextResponse.json({
             success: true,
             participant: data,
         });
-
     } catch (error) {
         console.error(
             "Register API error:",
@@ -214,9 +151,10 @@ export async function POST(request) {
         return NextResponse.json(
             {
                 error:
-                    "Server error.",
+                    "Registration failed.",
                 details:
-                    error.message,
+                    error?.message ||
+                    "Unknown server error.",
             },
             { status: 500 }
         );
