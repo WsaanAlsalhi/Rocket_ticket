@@ -14,14 +14,35 @@ function escapeXml(value) {
 
 export async function POST(request) {
     try {
-        const body = await request.json();
+        // -----------------------------------------
+        // Read request
+        // -----------------------------------------
 
-        const name = body.name?.trim();
-        const country = body.country?.trim();
-        const missionId = body.mission_id?.trim();
-        const seat = body.seat?.trim();
+        const body =
+            await request.json();
 
-        if (!name || !country || !missionId || !seat) {
+        const name =
+            body.name?.trim();
+
+        const country =
+            body.country?.trim();
+
+        const missionId =
+            body.mission_id?.trim();
+
+        const seat =
+            body.seat?.trim();
+
+        // -----------------------------------------
+        // Validate
+        // -----------------------------------------
+
+        if (
+            !name ||
+            !country ||
+            !missionId ||
+            !seat
+        ) {
             return NextResponse.json(
                 {
                     error:
@@ -31,174 +52,203 @@ export async function POST(request) {
             );
         }
 
-        // ---------------------------------------------
-        // Ticket template
-        // ---------------------------------------------
+        // -----------------------------------------
+        // Template path
+        // -----------------------------------------
 
-        const templatePath = path.join(
-            process.cwd(),
-            "public",
-            "ticket-template.png"
-        );
+        const templatePath =
+            path.join(
+                process.cwd(),
+                "public",
+                "ticket-template.png"
+            );
 
-        if (!fs.existsSync(templatePath)) {
+        // -----------------------------------------
+        // Check template
+        // -----------------------------------------
+
+        if (
+            !fs.existsSync(
+                templatePath
+            )
+        ) {
             return NextResponse.json(
                 {
-                    error: "Ticket template was not found.",
+                    error:
+                        "Ticket template was not found.",
+                    details:
+                        templatePath,
                 },
                 { status: 500 }
             );
         }
 
-        // ---------------------------------------------
-        // Get template size
-        // ---------------------------------------------
+        // -----------------------------------------
+        // Get template dimensions
+        // -----------------------------------------
 
         const metadata =
-            await sharp(templatePath).metadata();
+            await sharp(
+                templatePath
+            ).metadata();
 
-        const width = metadata.width || 1774;
-        const height = metadata.height || 887;
+        const width =
+            metadata.width || 1774;
 
-        // ---------------------------------------------
+        const height =
+            metadata.height || 887;
+
+        // -----------------------------------------
         // SVG text layer
-        // ---------------------------------------------
+        // -----------------------------------------
         //
-        // IMPORTANT:
-        // Use generic "sans-serif".
-        // Do NOT use DejaVu Sans or Arial here because
-        // those fonts may not exist in the Vercel runtime.
+        // Template:
+        // 1774 x 887
         //
+        // -----------------------------------------
 
         const textLayer = `
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="${width}"
-            height="${height}"
-            viewBox="0 0 ${width} ${height}"
-        >
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="${width}"
+    height="${height}"
+    viewBox="0 0 ${width} ${height}"
+>
 
-            <!-- PASSENGER -->
+    <!-- PASSENGER -->
 
-            <text
-                x="1035"
-                y="405"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="25"
-                font-weight="600"
-            >${escapeXml(name)}</text>
-
-
-            <!-- MISSION ID -->
-
-            <text
-                x="625"
-                y="535"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="20"
-                font-weight="600"
-            >${escapeXml(missionId)}</text>
+    <text
+        x="1035"
+        y="405"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="25"
+        font-weight="600"
+    >${escapeXml(name)}</text>
 
 
-            <!-- SEAT -->
+    <!-- MISSION ID -->
 
-            <text
-                x="905"
-                y="535"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="20"
-                font-weight="600"
-            >${escapeXml(seat)}</text>
-
-
-            <!-- TEAM -->
-
-            <text
-                x="1170"
-                y="535"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="20"
-                font-weight="600"
-            >PATRICK</text>
+    <text
+        x="625"
+        y="535"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="20"
+        font-weight="600"
+    >${escapeXml(missionId)}</text>
 
 
-            <!-- DESTINATION -->
+    <!-- SEAT -->
 
-            <text
-                x="625"
-                y="665"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="20"
-                font-weight="600"
-            >${escapeXml(country)}</text>
-
-
-            <!-- LAUNCH DATE -->
-
-            <text
-                x="885"
-                y="665"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="20"
-                font-weight="600"
-            >2026</text>
+    <text
+        x="905"
+        y="535"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="20"
+        font-weight="600"
+    >${escapeXml(seat)}</text>
 
 
-            <!-- STATUS -->
+    <!-- TEAM -->
 
-            <text
-                x="1170"
-                y="665"
-                text-anchor="middle"
-                fill="#000000"
-                font-family="sans-serif"
-                font-size="20"
-                font-weight="600"
-            >CLEARED</text>
+    <text
+        x="1170"
+        y="535"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="20"
+        font-weight="600"
+    >PATRICK</text>
 
-        </svg>
-        `;
 
-        // ---------------------------------------------
-        // Composite text over ticket
-        // ---------------------------------------------
+    <!-- DESTINATION -->
 
-        const output = await sharp(templatePath)
-            .composite([
-                {
-                    input: Buffer.from(textLayer),
-                    top: 0,
-                    left: 0,
-                },
-            ])
-            .png()
-            .toBuffer();
+    <text
+        x="625"
+        y="665"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="20"
+        font-weight="600"
+    >${escapeXml(country)}</text>
 
-        // ---------------------------------------------
+
+    <!-- LAUNCH DATE -->
+
+    <text
+        x="885"
+        y="665"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="20"
+        font-weight="600"
+    >2026</text>
+
+
+    <!-- STATUS -->
+
+    <text
+        x="1170"
+        y="665"
+        text-anchor="middle"
+        fill="#000000"
+        font-family="sans-serif"
+        font-size="20"
+        font-weight="600"
+    >CLEARED</text>
+
+</svg>
+`;
+
+        // -----------------------------------------
+        // Generate final ticket
+        // -----------------------------------------
+
+        const output =
+            await sharp(
+                templatePath
+            )
+                .composite([
+                    {
+                        input:
+                            Buffer.from(
+                                textLayer
+                            ),
+                        top: 0,
+                        left: 0,
+                    },
+                ])
+                .png()
+                .toBuffer();
+
+        // -----------------------------------------
         // Return PNG
-        // ---------------------------------------------
+        // -----------------------------------------
 
-        return new NextResponse(output, {
-            status: 200,
-            headers: {
-                "Content-Type": "image/png",
-                "Content-Disposition":
-                    `inline; filename="${missionId}.png"`,
-                "Cache-Control": "no-store",
-            },
-        });
+        return new NextResponse(
+            output,
+            {
+                status: 200,
+                headers: {
+                    "Content-Type":
+                        "image/png",
+
+                    "Content-Disposition":
+                        `inline; filename="${missionId}.png"`,
+
+                    "Cache-Control":
+                        "no-store",
+                },
+            }
+        );
 
     } catch (error) {
         console.error(
@@ -208,8 +258,10 @@ export async function POST(request) {
 
         return NextResponse.json(
             {
-                error: "Could not generate ticket.",
-                details: error.message,
+                error:
+                    "Could not generate ticket.",
+                details:
+                    error.message,
             },
             { status: 500 }
         );
