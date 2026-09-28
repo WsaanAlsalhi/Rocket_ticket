@@ -3,6 +3,8 @@ import sharp from "sharp";
 import fs from "fs";
 import path from "path";
 
+export const runtime = "nodejs";
+
 function escapeXml(value) {
     return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -14,28 +16,27 @@ function escapeXml(value) {
 
 export async function POST(request) {
     try {
-        // -----------------------------------------
-        // Read request
-        // -----------------------------------------
-
-        const body =
-            await request.json();
+        const body = await request.json();
 
         const name =
-            body.name?.trim();
+            typeof body.name === "string"
+                ? body.name.trim()
+                : "";
 
         const country =
-            body.country?.trim();
+            typeof body.country === "string"
+                ? body.country.trim()
+                : "";
 
         const missionId =
-            body.mission_id?.trim();
+            typeof body.mission_id === "string"
+                ? body.mission_id.trim()
+                : "";
 
         const seat =
-            body.seat?.trim();
-
-        // -----------------------------------------
-        // Validate
-        // -----------------------------------------
+            typeof body.seat === "string"
+                ? body.seat.trim()
+                : "";
 
         if (
             !name ||
@@ -52,45 +53,31 @@ export async function POST(request) {
             );
         }
 
-        // -----------------------------------------
-        // Template path
-        // -----------------------------------------
+        /*
+         * Load ticket template.
+         */
 
-        const templatePath =
-            path.join(
-                process.cwd(),
-                "public",
-                "ticket-template.png"
-            );
+        const templatePath = path.join(
+            process.cwd(),
+            "public",
+            "ticket-template.png"
+        );
 
-        // -----------------------------------------
-        // Check template
-        // -----------------------------------------
-
-        if (
-            !fs.existsSync(
-                templatePath
-            )
-        ) {
+        if (!fs.existsSync(templatePath)) {
             return NextResponse.json(
                 {
                     error:
-                        "Ticket template was not found.",
-                    details:
-                        templatePath,
+                        "ticket-template.png was not found.",
+                    path: templatePath,
                 },
                 { status: 500 }
             );
         }
 
-        // -----------------------------------------
-        // Get template dimensions
-        // -----------------------------------------
+        const image = sharp(templatePath);
 
         const metadata =
-            await sharp(
-                templatePath
-            ).metadata();
+            await image.metadata();
 
         const width =
             metadata.width || 1774;
@@ -98,14 +85,13 @@ export async function POST(request) {
         const height =
             metadata.height || 887;
 
-        // -----------------------------------------
-        // SVG text layer
-        // -----------------------------------------
-        //
-        // Template:
-        // 1774 x 887
-        //
-        // -----------------------------------------
+        /*
+         * Text layer.
+         *
+         * IMPORTANT:
+         * Keep the font simple and use normal weight.
+         * The ticket only requires English text/numbers.
+         */
 
         const textLayer = `
 <svg
@@ -115,16 +101,17 @@ export async function POST(request) {
     viewBox="0 0 ${width} ${height}"
 >
 
-    <!-- PASSENGER -->
+    <!-- PASSENGER NAME -->
 
     <text
         x="1035"
         y="405"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="25"
-        font-weight="600"
+        font-weight="400"
     >${escapeXml(name)}</text>
 
 
@@ -134,10 +121,11 @@ export async function POST(request) {
         x="625"
         y="535"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="20"
-        font-weight="600"
+        font-weight="400"
     >${escapeXml(missionId)}</text>
 
 
@@ -147,10 +135,11 @@ export async function POST(request) {
         x="905"
         y="535"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="20"
-        font-weight="600"
+        font-weight="400"
     >${escapeXml(seat)}</text>
 
 
@@ -160,10 +149,11 @@ export async function POST(request) {
         x="1170"
         y="535"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="20"
-        font-weight="600"
+        font-weight="400"
     >PATRICK</text>
 
 
@@ -173,10 +163,11 @@ export async function POST(request) {
         x="625"
         y="665"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="20"
-        font-weight="600"
+        font-weight="400"
     >${escapeXml(country)}</text>
 
 
@@ -186,10 +177,11 @@ export async function POST(request) {
         x="885"
         y="665"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="20"
-        font-weight="600"
+        font-weight="400"
     >2026</text>
 
 
@@ -199,23 +191,22 @@ export async function POST(request) {
         x="1170"
         y="665"
         text-anchor="middle"
+        dominant-baseline="middle"
         fill="#000000"
-        font-family="sans-serif"
+        font-family="DejaVu Sans"
         font-size="20"
-        font-weight="600"
+        font-weight="400"
     >CLEARED</text>
 
 </svg>
 `;
 
-        // -----------------------------------------
-        // Generate final ticket
-        // -----------------------------------------
+        /*
+         * Render the text layer onto the template.
+         */
 
         const output =
-            await sharp(
-                templatePath
-            )
+            await sharp(templatePath)
                 .composite([
                     {
                         input:
@@ -229,10 +220,6 @@ export async function POST(request) {
                 .png()
                 .toBuffer();
 
-        // -----------------------------------------
-        // Return PNG
-        // -----------------------------------------
-
         return new NextResponse(
             output,
             {
@@ -245,11 +232,10 @@ export async function POST(request) {
                         `inline; filename="${missionId}.png"`,
 
                     "Cache-Control":
-                        "no-store",
+                        "no-store, max-age=0",
                 },
             }
         );
-
     } catch (error) {
         console.error(
             "Generate ticket error:",
@@ -261,7 +247,8 @@ export async function POST(request) {
                 error:
                     "Could not generate ticket.",
                 details:
-                    error.message,
+                    error?.message ||
+                    "Unknown error.",
             },
             { status: 500 }
         );
