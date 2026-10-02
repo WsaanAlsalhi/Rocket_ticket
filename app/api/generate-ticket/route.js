@@ -18,32 +18,12 @@ export async function POST(request) {
     try {
         const body = await request.json();
 
-        const name =
-            typeof body.name === "string"
-                ? body.name.trim()
-                : "";
+        const name = body.name?.trim();
+        const country = body.country?.trim();
+        const missionId = body.mission_id?.trim();
+        const seat = body.seat?.trim();
 
-        const country =
-            typeof body.country === "string"
-                ? body.country.trim()
-                : "";
-
-        const missionId =
-            typeof body.mission_id === "string"
-                ? body.mission_id.trim()
-                : "";
-
-        const seat =
-            typeof body.seat === "string"
-                ? body.seat.trim()
-                : "";
-
-        if (
-            !name ||
-            !country ||
-            !missionId ||
-            !seat
-        ) {
+        if (!name || !country || !missionId || !seat) {
             return NextResponse.json(
                 {
                     error:
@@ -53,45 +33,50 @@ export async function POST(request) {
             );
         }
 
-        /*
-         * Load ticket template.
-         */
-
+        // Ticket template
         const templatePath = path.join(
             process.cwd(),
             "public",
             "ticket-template.png"
         );
 
+        // Embedded font
+        const fontPath = path.join(
+            process.cwd(),
+            "public",
+            "fonts",
+            "DejaVuSans.ttf"
+        );
+
         if (!fs.existsSync(templatePath)) {
             return NextResponse.json(
                 {
-                    error:
-                        "ticket-template.png was not found.",
-                    path: templatePath,
+                    error: "Ticket template was not found.",
+                    details: templatePath,
                 },
                 { status: 500 }
             );
         }
 
-        const image = sharp(templatePath);
+        if (!fs.existsSync(fontPath)) {
+            return NextResponse.json(
+                {
+                    error: "Font file was not found.",
+                    details: fontPath,
+                },
+                { status: 500 }
+            );
+        }
 
-        const metadata =
-            await image.metadata();
+        const metadata = await sharp(templatePath).metadata();
 
-        const width =
-            metadata.width || 1774;
+        const width = metadata.width || 1774;
+        const height = metadata.height || 887;
 
-        const height =
-            metadata.height || 887;
-
-        /*
-         * Text layer.
-         *
-         * IMPORTANT:
-         * Keep the font simple and use normal weight.
-         * The ticket only requires English text/numbers.
-         */
+        // Read the font and embed it directly into the SVG.
+        const fontBase64 = fs
+            .readFileSync(fontPath)
+            .toString("base64");
 
         const textLayer = `
 <svg
@@ -101,154 +86,114 @@ export async function POST(request) {
     viewBox="0 0 ${width} ${height}"
 >
 
-    <!-- PASSENGER NAME -->
+    <style>
+        @font-face {
+            font-family: "RocketFont";
+            src: url("data:font/ttf;base64,${fontBase64}") format("truetype");
+            font-weight: normal;
+        }
 
+        .ticket-text {
+            font-family: "RocketFont";
+            fill: #000000;
+            font-weight: 600;
+        }
+    </style>
+
+    <!-- NAME -->
     <text
         x="1035"
         y="405"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="25"
-        font-weight="400"
     >${escapeXml(name)}</text>
 
-
     <!-- MISSION ID -->
-
     <text
         x="625"
         y="535"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="20"
-        font-weight="400"
     >${escapeXml(missionId)}</text>
 
-
     <!-- SEAT -->
-
     <text
         x="905"
         y="535"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="20"
-        font-weight="400"
     >${escapeXml(seat)}</text>
 
-
-    <!-- TEAM -->
-
+    <!-- PATRICK -->
     <text
         x="1170"
         y="535"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="20"
-        font-weight="400"
     >PATRICK</text>
 
-
-    <!-- DESTINATION -->
-
+    <!-- COUNTRY -->
     <text
         x="625"
         y="665"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="20"
-        font-weight="400"
     >${escapeXml(country)}</text>
 
-
-    <!-- LAUNCH DATE -->
-
+    <!-- YEAR -->
     <text
         x="885"
         y="665"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="20"
-        font-weight="400"
     >2026</text>
 
-
     <!-- STATUS -->
-
     <text
         x="1170"
         y="665"
         text-anchor="middle"
-        dominant-baseline="middle"
-        fill="#000000"
-        font-family="DejaVu Sans"
+        class="ticket-text"
         font-size="20"
-        font-weight="400"
     >CLEARED</text>
 
 </svg>
 `;
 
-        /*
-         * Render the text layer onto the template.
-         */
-
-        const output =
-            await sharp(templatePath)
-                .composite([
-                    {
-                        input:
-                            Buffer.from(
-                                textLayer
-                            ),
-                        top: 0,
-                        left: 0,
-                    },
-                ])
-                .png()
-                .toBuffer();
-
-        return new NextResponse(
-            output,
-            {
-                status: 200,
-                headers: {
-                    "Content-Type":
-                        "image/png",
-
-                    "Content-Disposition":
-                        `inline; filename="${missionId}.png"`,
-
-                    "Cache-Control":
-                        "no-store, max-age=0",
+        const output = await sharp(templatePath)
+            .composite([
+                {
+                    input: Buffer.from(textLayer),
+                    top: 0,
+                    left: 0,
                 },
-            }
-        );
+            ])
+            .png()
+            .toBuffer();
+
+        return new NextResponse(output, {
+            status: 200,
+            headers: {
+                "Content-Type": "image/png",
+                "Content-Disposition":
+                    `inline; filename="${missionId}.png"`,
+                "Cache-Control": "no-store",
+            },
+        });
     } catch (error) {
-        console.error(
-            "Generate ticket error:",
-            error
-        );
+        console.error("Generate ticket error:", error);
 
         return NextResponse.json(
             {
-                error:
-                    "Could not generate ticket.",
+                error: "Could not generate ticket.",
                 details:
-                    error?.message ||
-                    "Unknown error.",
+                    error?.message || "Unknown error.",
             },
             { status: 500 }
         );
