@@ -5,28 +5,19 @@ export const runtime = "nodejs";
 
 export async function POST(request) {
     try {
-        const supabaseUrl =
-            process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-        const serviceRoleKey =
-            process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!supabaseUrl) {
             return NextResponse.json(
-                {
-                    error:
-                        "NEXT_PUBLIC_SUPABASE_URL is missing.",
-                },
+                { error: "NEXT_PUBLIC_SUPABASE_URL is missing." },
                 { status: 500 }
             );
         }
 
         if (!serviceRoleKey) {
             return NextResponse.json(
-                {
-                    error:
-                        "SUPABASE_SERVICE_ROLE_KEY is missing.",
-                },
+                { error: "SUPABASE_SERVICE_ROLE_KEY is missing." },
                 { status: 500 }
             );
         }
@@ -57,40 +48,27 @@ export async function POST(request) {
         if (!name || !country) {
             return NextResponse.json(
                 {
-                    error:
-                        "Name and country are required.",
+                    error: "Name and country are required."
                 },
                 { status: 400 }
             );
         }
 
-        /*
-         * Get the latest participant.
-         * We use the database ID to create the next
-         * mission number.
-         */
-
         const { data: lastParticipant, error: readError } =
             await supabase
                 .from("rocket_participants")
                 .select("id")
-                .order("id", {
-                    ascending: false,
-                })
+                .order("id", { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
         if (readError) {
-            console.error(
-                "Supabase read error:",
-                readError
-            );
+            console.error("Supabase read error:", readError);
 
             return NextResponse.json(
                 {
-                    error:
-                        "Could not read participant data.",
-                    details: readError.message,
+                    error: "Could not read participant data.",
+                    details: readError.message
                 },
                 { status: 500 }
             );
@@ -105,10 +83,6 @@ export async function POST(request) {
         const seat =
             `A-${String(nextNumber).padStart(3, "0")}`;
 
-        /*
-         * Save participant.
-         */
-
         const { data, error: insertError } =
             await supabase
                 .from("rocket_participants")
@@ -117,7 +91,7 @@ export async function POST(request) {
                     country,
                     email,
                     mission_id: missionId,
-                    seat,
+                    seat
                 })
                 .select()
                 .single();
@@ -130,9 +104,8 @@ export async function POST(request) {
 
             return NextResponse.json(
                 {
-                    error:
-                        "Could not save participant.",
-                    details: insertError.message,
+                    error: "Could not save participant.",
+                    details: insertError.message
                 },
                 { status: 500 }
             );
@@ -140,21 +113,18 @@ export async function POST(request) {
 
         return NextResponse.json({
             success: true,
-            participant: data,
+            participant: data
         });
+
     } catch (error) {
-        console.error(
-            "Register API error:",
-            error
-        );
+        console.error("Register API error:", error);
 
         return NextResponse.json(
             {
-                error:
-                    "Registration failed.",
+                error: "Registration failed.",
                 details:
                     error?.message ||
-                    "Unknown server error.",
+                    "Unknown error."
             },
             { status: 500 }
         );
