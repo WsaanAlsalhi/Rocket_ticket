@@ -27,56 +27,33 @@ export async function POST(request) {
             return NextResponse.json(
                 {
                     error:
-                        "Name, country, mission ID and seat are required.",
+                        "Name, country, mission ID and seat are required."
                 },
                 { status: 400 }
             );
         }
 
-        // Ticket template
         const templatePath = path.join(
             process.cwd(),
             "public",
             "ticket-template.png"
         );
 
-        // Embedded font
-        const fontPath = path.join(
-            process.cwd(),
-            "public",
-            "fonts",
-            "DejaVuSans.ttf"
-        );
-
         if (!fs.existsSync(templatePath)) {
             return NextResponse.json(
                 {
                     error: "Ticket template was not found.",
-                    details: templatePath,
+                    details: templatePath
                 },
                 { status: 500 }
             );
         }
 
-        if (!fs.existsSync(fontPath)) {
-            return NextResponse.json(
-                {
-                    error: "Font file was not found.",
-                    details: fontPath,
-                },
-                { status: 500 }
-            );
-        }
-
-        const metadata = await sharp(templatePath).metadata();
+        const metadata =
+            await sharp(templatePath).metadata();
 
         const width = metadata.width || 1774;
         const height = metadata.height || 887;
-
-        // Read the font and embed it directly into the SVG.
-        const fontBase64 = fs
-            .readFileSync(fontPath)
-            .toString("base64");
 
         const textLayer = `
 <svg
@@ -86,96 +63,90 @@ export async function POST(request) {
     viewBox="0 0 ${width} ${height}"
 >
 
-    <style>
-        @font-face {
-            font-family: "RocketFont";
-            src: url("data:font/ttf;base64,${fontBase64}") format("truetype");
-            font-weight: normal;
-        }
-
-        .ticket-text {
-            font-family: "RocketFont";
-            fill: #000000;
-            font-weight: 600;
-        }
-    </style>
-
-    <!-- NAME -->
     <text
         x="1035"
         y="405"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="25"
+        font-weight="600"
     >${escapeXml(name)}</text>
 
-    <!-- MISSION ID -->
     <text
         x="625"
         y="535"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="20"
+        font-weight="600"
     >${escapeXml(missionId)}</text>
 
-    <!-- SEAT -->
     <text
         x="905"
         y="535"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="20"
+        font-weight="600"
     >${escapeXml(seat)}</text>
 
-    <!-- PATRICK -->
     <text
         x="1170"
         y="535"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="20"
+        font-weight="600"
     >PATRICK</text>
 
-    <!-- COUNTRY -->
     <text
         x="625"
         y="665"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="20"
+        font-weight="600"
     >${escapeXml(country)}</text>
 
-    <!-- YEAR -->
     <text
         x="885"
         y="665"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="20"
+        font-weight="600"
     >2026</text>
 
-    <!-- STATUS -->
     <text
         x="1170"
         y="665"
         text-anchor="middle"
-        class="ticket-text"
+        fill="#000000"
+        font-family="Arial, Helvetica, sans-serif"
         font-size="20"
+        font-weight="600"
     >CLEARED</text>
 
 </svg>
 `;
 
-        const output = await sharp(templatePath)
-            .composite([
-                {
-                    input: Buffer.from(textLayer),
-                    top: 0,
-                    left: 0,
-                },
-            ])
-            .png()
-            .toBuffer();
+        const output =
+            await sharp(templatePath)
+                .composite([
+                    {
+                        input: Buffer.from(textLayer),
+                        top: 0,
+                        left: 0
+                    }
+                ])
+                .png()
+                .toBuffer();
 
         return new NextResponse(output, {
             status: 200,
@@ -183,17 +154,22 @@ export async function POST(request) {
                 "Content-Type": "image/png",
                 "Content-Disposition":
                     `inline; filename="${missionId}.png"`,
-                "Cache-Control": "no-store",
-            },
+                "Cache-Control": "no-store"
+            }
         });
+
     } catch (error) {
-        console.error("Generate ticket error:", error);
+        console.error(
+            "Generate ticket error:",
+            error
+        );
 
         return NextResponse.json(
             {
                 error: "Could not generate ticket.",
                 details:
-                    error?.message || "Unknown error.",
+                    error?.message ||
+                    "Unknown error."
             },
             { status: 500 }
         );
