@@ -15,7 +15,7 @@ export async function POST(request) {
             return NextResponse.json(
                 {
                     error:
-                        "NEXT_PUBLIC_SUPABASE_URL is missing.",
+                        "NEXT_PUBLIC_SUPABASE_URL is missing."
                 },
                 { status: 500 }
             );
@@ -25,7 +25,7 @@ export async function POST(request) {
             return NextResponse.json(
                 {
                     error:
-                        "SUPABASE_SERVICE_ROLE_KEY is missing.",
+                        "SUPABASE_SERVICE_ROLE_KEY is missing."
                 },
                 { status: 500 }
             );
@@ -44,25 +44,18 @@ export async function POST(request) {
 
         const missionId =
             String(
-                formData.get(
-                    "mission_id"
-                ) || ""
+                formData.get("mission_id") || ""
             ).trim();
 
         if (!file || !missionId) {
             return NextResponse.json(
                 {
                     error:
-                        "Ticket file and mission ID are required.",
+                        "Ticket file and mission ID are required."
                 },
                 { status: 400 }
             );
         }
-
-        /*
-         * Convert uploaded browser Blob
-         * to Buffer.
-         */
 
         const buffer =
             Buffer.from(
@@ -72,28 +65,16 @@ export async function POST(request) {
         const filePath =
             `${missionId}.png`;
 
-        /*
-         * Upload ticket.
-         */
-
-        const {
-            error: uploadError,
-        } =
+        const { error: uploadError } =
             await supabase.storage
-                .from(
-                    "rocket-tickets"
-                )
+                .from("rocket-tickets")
                 .upload(
                     filePath,
                     buffer,
                     {
-                        contentType:
-                            "image/png",
-
+                        contentType: "image/png",
                         upsert: true,
-
-                        cacheControl:
-                            "3600",
+                        cacheControl: "3600"
                     }
                 );
 
@@ -108,26 +89,16 @@ export async function POST(request) {
                     error:
                         "Could not upload ticket.",
                     details:
-                        uploadError.message,
+                        uploadError.message
                 },
                 { status: 500 }
             );
         }
 
-        /*
-         * Get public URL.
-         */
-
-        const {
-            data: publicUrlData,
-        } =
+        const { data: publicUrlData } =
             supabase.storage
-                .from(
-                    "rocket-tickets"
-                )
-                .getPublicUrl(
-                    filePath
-                );
+                .from("rocket-tickets")
+                .getPublicUrl(filePath);
 
         const ticketUrl =
             publicUrlData?.publicUrl;
@@ -136,26 +107,17 @@ export async function POST(request) {
             return NextResponse.json(
                 {
                     error:
-                        "Could not create public ticket URL.",
+                        "Could not create public ticket URL."
                 },
                 { status: 500 }
             );
         }
 
-        /*
-         * Save ticket URL in database.
-         */
-
-        const {
-            error: updateError,
-        } =
+        const { error: updateError } =
             await supabase
-                .from(
-                    "rocket_participants"
-                )
+                .from("rocket_participants")
                 .update({
-                    ticket_url:
-                        ticketUrl,
+                    ticket_url: ticketUrl
                 })
                 .eq(
                     "mission_id",
@@ -174,8 +136,7 @@ export async function POST(request) {
                         "Ticket uploaded, but database update failed.",
                     details:
                         updateError.message,
-                    ticket_url:
-                        ticketUrl,
+                    ticket_url: ticketUrl
                 },
                 { status: 500 }
             );
@@ -183,9 +144,9 @@ export async function POST(request) {
 
         return NextResponse.json({
             success: true,
-            ticket_url:
-                ticketUrl,
+            ticket_url: ticketUrl
         });
+
     } catch (error) {
         console.error(
             "Upload ticket error:",
@@ -198,7 +159,7 @@ export async function POST(request) {
                     "Failed to upload ticket.",
                 details:
                     error?.message ||
-                    "Unknown error.",
+                    "Unknown error."
             },
             { status: 500 }
         );
