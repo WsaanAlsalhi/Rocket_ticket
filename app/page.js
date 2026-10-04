@@ -3,86 +3,53 @@
 import { useEffect, useState } from "react";
 
 export default function Home() {
-    const [name, setName] =
-        useState("");
+    const [name, setName] = useState("");
+    const [country, setCountry] = useState("");
+    const [email, setEmail] = useState("");
 
-    const [country, setCountry] =
-        useState("");
+    const [ticket, setTicket] = useState(null);
+    const [ticketImage, setTicketImage] = useState(null);
 
-    const [email, setEmail] =
-        useState("");
-
-    const [ticket, setTicket] =
-        useState(null);
-
-    const [ticketImage, setTicketImage] =
-        useState(null);
-
-    const [loading, setLoading] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
-
-    const [emailMessage, setEmailMessage] =
-        useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [saveMessage, setSaveMessage] = useState("");
 
     useEffect(() => {
         return () => {
             if (ticketImage) {
-                URL.revokeObjectURL(
-                    ticketImage
-                );
+                URL.revokeObjectURL(ticketImage);
             }
         };
     }, [ticketImage]);
 
-    async function registerParticipant(
-        event
-    ) {
+    async function registerParticipant(event) {
         event.preventDefault();
 
         setError("");
-        setEmailMessage("");
+        setSaveMessage("");
         setLoading(true);
 
         try {
-            /*
-             * STEP 1
-             * Register participant.
-             */
-
+            // 1. Register participant
             const registerResponse =
-                await fetch(
-                    "/api/register",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body: JSON.stringify({
-                            name:
-                                name.trim(),
-
-                            country:
-                                country.trim(),
-
-                            email:
-                                email.trim() ||
-                                null,
-                        }),
-                    }
-                );
+                await fetch("/api/register", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: name.trim(),
+                        country: country.trim(),
+                        email:
+                            email.trim() || null
+                    })
+                });
 
             const registerData =
                 await registerResponse.json();
 
-            if (
-                !registerResponse.ok
-            ) {
+            if (!registerResponse.ok) {
                 throw new Error(
                     registerData.details ||
                     registerData.error ||
@@ -99,41 +66,30 @@ export default function Home() {
                 );
             }
 
-            /*
-             * STEP 2
-             * Generate ticket.
-             */
-
+            // 2. Generate ticket
             const generateResponse =
                 await fetch(
                     "/api/generate-ticket",
                     {
                         method: "POST",
-
                         headers: {
                             "Content-Type":
-                                "application/json",
+                                "application/json"
                         },
-
                         body: JSON.stringify({
                             name:
                                 participant.name,
-
                             country:
                                 participant.country,
-
                             mission_id:
                                 participant.mission_id,
-
                             seat:
-                                participant.seat,
-                        }),
+                                participant.seat
+                        })
                     }
                 );
 
-            if (
-                !generateResponse.ok
-            ) {
+            if (!generateResponse.ok) {
                 let generateData = {};
 
                 try {
@@ -148,44 +104,22 @@ export default function Home() {
                 );
             }
 
-            /*
-             * Convert generated PNG
-             * into browser image.
-             */
-
             const blob =
                 await generateResponse.blob();
 
-            if (
-                !blob ||
-                blob.size === 0
-            ) {
+            if (!blob || blob.size === 0) {
                 throw new Error(
                     "Generated ticket is empty."
                 );
             }
 
             const imageUrl =
-                URL.createObjectURL(
-                    blob
-                );
+                URL.createObjectURL(blob);
 
-            setTicket(
-                participant
-            );
+            setTicket(participant);
+            setTicketImage(imageUrl);
 
-            setTicketImage(
-                imageUrl
-            );
-
-            /*
-             * STEP 3
-             * Upload ticket to Supabase.
-             *
-             * Failure here should NOT
-             * remove the ticket from screen.
-             */
-
+            // 3. Save ticket to Supabase
             try {
                 const formData =
                     new FormData();
@@ -206,101 +140,40 @@ export default function Home() {
                         "/api/upload-ticket",
                         {
                             method: "POST",
-                            body:
-                                formData,
+                            body: formData
                         }
                     );
 
                 const uploadData =
                     await uploadResponse.json();
 
-                if (
-                    !uploadResponse.ok
-                ) {
+                if (!uploadResponse.ok) {
                     console.error(
                         "Ticket upload failed:",
                         uploadData
                     );
+
+                    setSaveMessage(
+                        "Ticket generated, but saving it failed."
+                    );
+                } else {
+                    setSaveMessage(
+                        "Ticket generated and saved successfully."
+                    );
                 }
-            } catch (
-                uploadError
-            ) {
+
+            } catch (uploadError) {
                 console.error(
                     "Ticket upload error:",
                     uploadError
                 );
+
+                setSaveMessage(
+                    "Ticket generated, but saving it failed."
+                );
             }
 
-            /*
-             * STEP 4
-             * Send stickers ONLY if
-             * an email was provided.
-             */
-
-            if (
-                email.trim()
-            ) {
-                try {
-                    const emailResponse =
-                        await fetch(
-                            "/api/send-stickers",
-                            {
-                                method: "POST",
-
-                                headers: {
-                                    "Content-Type":
-                                        "application/json",
-                                },
-
-                                body:
-                                    JSON.stringify({
-                                        email:
-                                            email.trim(),
-
-                                        name:
-                                            participant.name,
-
-                                        mission_id:
-                                            participant.mission_id,
-                                    }),
-                            }
-                        );
-
-                    const emailData =
-                        await emailResponse.json();
-
-                    if (
-                        emailResponse.ok &&
-                        emailData.sent
-                    ) {
-                        setEmailMessage(
-                            "Your mission stickers have been sent to your email."
-                        );
-                    } else {
-                        setEmailMessage(
-                            emailData.details ||
-                            emailData.error ||
-                            "Ticket generated, but the stickers could not be sent."
-                        );
-                    }
-                } catch (
-                    emailError
-                ) {
-                    console.error(
-                        "Email request failed:",
-                        emailError
-                    );
-
-                    setEmailMessage(
-                        "Ticket generated successfully, but the stickers could not be sent."
-                    );
-                }
-            } else {
-                setEmailMessage("");
-            }
-        } catch (
-            registrationError
-        ) {
+        } catch (registrationError) {
             console.error(
                 "Registration process failed:",
                 registrationError
@@ -310,33 +183,26 @@ export default function Home() {
                 registrationError?.message ||
                 "Something went wrong."
             );
+
         } finally {
             setLoading(false);
         }
     }
 
     function downloadTicket() {
-        if (
-            !ticketImage ||
-            !ticket
-        ) {
+        if (!ticketImage || !ticket) {
             return;
         }
 
         const link =
-            document.createElement(
-                "a"
-            );
+            document.createElement("a");
 
-        link.href =
-            ticketImage;
+        link.href = ticketImage;
 
         link.download =
             `Rocket-Mission-${ticket.mission_id}.png`;
 
-        document.body.appendChild(
-            link
-        );
+        document.body.appendChild(link);
 
         link.click();
 
@@ -345,20 +211,16 @@ export default function Home() {
 
     function createAnotherTicket() {
         if (ticketImage) {
-            URL.revokeObjectURL(
-                ticketImage
-            );
+            URL.revokeObjectURL(ticketImage);
         }
 
         setName("");
         setCountry("");
         setEmail("");
-
         setTicket(null);
         setTicketImage(null);
-
         setError("");
-        setEmailMessage("");
+        setSaveMessage("");
     }
 
     return (
@@ -437,7 +299,6 @@ export default function Home() {
 
                             <label htmlFor="email">
                                 Email
-
                                 <span className="optional">
                                     {" "}
                                     (Optional)
@@ -457,7 +318,7 @@ export default function Home() {
                             />
 
                             <small>
-                                Add your email to receive Rocket Mission stickers.
+                                Email is optional.
                             </small>
 
                         </div>
@@ -504,9 +365,9 @@ export default function Home() {
 
                     </div>
 
-                    {emailMessage && (
+                    {saveMessage && (
                         <div className="email-success">
-                            {emailMessage}
+                            {saveMessage}
                         </div>
                     )}
 
