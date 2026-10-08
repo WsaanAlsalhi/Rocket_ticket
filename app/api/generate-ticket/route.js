@@ -18,7 +18,11 @@ function escapeXml(str = '') {
 
 export async function POST(req) {
   try {
-    const { name, country, missionId, seat } = await req.json();
+    const body = await req.json();
+    const name = body.name;
+    const country = body.country;
+    const missionId = body.mission_id || body.missionId;
+    const seat = body.seat;
 
     if (!name || !missionId || !seat) {
       return NextResponse.json(
@@ -27,7 +31,11 @@ export async function POST(req) {
       );
     }
 
-    const templatePath = path.join(process.cwd(), 'public', 'ticket-template.png');
+    const templatePath = path.join(
+      process.cwd(),
+      'public',
+      'ticket-template.png'
+    );
 
     // Make sure the template exists
     if (!fs.existsSync(templatePath)) {
@@ -69,11 +77,13 @@ export async function POST(req) {
       .png()
       .toBuffer();
 
-    const base64 = ticketBuffer.toString('base64');
-
-    return NextResponse.json({
-      success: true,
-      image: `data:image/png;base64,${base64}`,
+    // Return the PNG directly as a binary response
+    return new NextResponse(ticketBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'no-store',
+      },
     });
   } catch (err) {
     console.error('[generate-ticket] error:', err);
