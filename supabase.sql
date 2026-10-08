@@ -13,14 +13,14 @@ create table if not exists public.rocket_participants (
 );
 
 -- ============================================
--- 2) Tickets bucket (public read)
+-- 2) Create / ensure the "tickets" bucket (public read)
 -- ============================================
 insert into storage.buckets (id, name, public)
 values ('tickets', 'tickets', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
 -- ============================================
--- 3) Storage policies
+-- 3) Storage policies on storage.objects
 -- ============================================
 drop policy if exists "service_role upload tickets" on storage.objects;
 create policy "service_role upload tickets"
@@ -37,5 +37,11 @@ using (bucket_id = 'tickets');
 drop policy if exists "service_role update tickets" on storage.objects;
 create policy "service_role update tickets"
 on storage.objects for update
+to service_role
+using (bucket_id = 'tickets');
+
+drop policy if exists "service_role delete tickets" on storage.objects;
+create policy "service_role delete tickets"
+on storage.objects for delete
 to service_role
 using (bucket_id = 'tickets');
