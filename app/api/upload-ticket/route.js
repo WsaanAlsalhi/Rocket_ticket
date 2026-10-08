@@ -1,167 +1,75 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+// Sharp / Buffer handling needs the Node.js runtime
+export const runtime = 'nodejs';
 
-export async function POST(request) {
-    try {
-        const supabaseUrl =
-            process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Admin client using service_role — bypasses RLS (server only)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+);
 
-        const serviceRoleKey =
-            process.env.SUPABASE_SERVICE_ROLE_KEY;
+export async function POST(req) {
+  try {
+    const formData = await req.formData();
+    const file = formData.get('ticket');
+    const participantId = formData.get('participantId');
 
-        if (!supabaseUrl) {
-            return NextResponse.json(
-                {
-                    error:
-                        "NEXT_PUBLIC_SUPABASE_URL is missing."
-                },
-                { status: 500 }
-            );
-        }
-
-        if (!serviceRoleKey) {
-            return NextResponse.json(
-                {
-                    error:
-                        "SUPABASE_SERVICE_ROLE_KEY is missing."
-                },
-                { status: 500 }
-            );
-        }
-
-        const supabase = createClient(
-            supabaseUrl,
-            serviceRoleKey
-        );
-
-        const formData =
-            await request.formData();
-
-        const file =
-            formData.get("file");
-
-        const missionId =
-            String(
-                formData.get("mission_id") || ""
-            ).trim();
-
-        if (!file || !missionId) {
-            return NextResponse.json(
-                {
-                    error:
-                        "Ticket file and mission ID are required."
-                },
-                { status: 400 }
-            );
-        }
-
-        const buffer =
-            Buffer.from(
-                await file.arrayBuffer()
-            );
-
-        const filePath =
-            `${missionId}.png`;
-
-        const { error: uploadError } =
-            await supabase.storage
-                .from("rocket-tickets")
-                .upload(
-                    filePath,
-                    buffer,
-                    {
-                        contentType: "image/png",
-                        upsert: true,
-                        cacheControl: "3600"
-                    }
-                );
-
-        if (uploadError) {
-            console.error(
-                "Storage upload error:",
-                uploadError
-            );
-
-            return NextResponse.json(
-                {
-                    error:
-                        "Could not upload ticket.",
-                    details:
-                        uploadError.message
-                },
-                { status: 500 }
-            );
-        }
-
-        const { data: publicUrlData } =
-            supabase.storage
-                .from("rocket-tickets")
-                .getPublicUrl(filePath);
-
-        const ticketUrl =
-            publicUrlData?.publicUrl;
-
-        if (!ticketUrl) {
-            return NextResponse.json(
-                {
-                    error:
-                        "Could not create public ticket URL."
-                },
-                { status: 500 }
-            );
-        }
-
-        const { error: updateError } =
-            await supabase
-                .from("rocket_participants")
-                .update({
-                    ticket_url: ticketUrl
-                })
-                .eq(
-                    "mission_id",
-                    missionId
-                );
-
-        if (updateError) {
-            console.error(
-                "Database update error:",
-                updateError
-            );
-
-            return NextResponse.json(
-                {
-                    error:
-                        "Ticket uploaded, but database update failed.",
-                    details:
-                        updateError.message,
-                    ticket_url: ticketUrl
-                },
-                { status: 500 }
-            );
-        }
-
-        return NextResponse.json({
-            success: true,
-            ticket_url: ticketUrl
-        });
-
-    } catch (error) {
-        console.error(
-            "Upload ticket error:",
-            error
-        );
-
-        return NextResponse.json(
-            {
-                error:
-                    "Failed to upload ticket.",
-                details:
-                    error?.message ||
-                    "Unknown error."
-            },
-            { status: 500 }
-        );
+    // Both file and participantId are required
+    if (!file || !participantId) {
+      return NextResponse.json(
+        { error: 'Missing file or participantId' },
+        { status: 400 }
+      );
     }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const fileName = `ticket-${participantId}-${Date.now()}.png`;
+    const bucket = 'tickets';
+
+    // 1) Upload file to Supabase Storage
+    const { error: uploadError } = await supabaseAdmin
+      .storage
+      .from(bucket)
+      .upload(fileName, buffer, {
+        contentType: 'image/png',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[upload-ticket] upload error:', uploadError);
+      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    }
+
+    // 2) Get the public URL
+    const { data: urlData } = supabaseAdmin
+      .storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    // 3) Save the URL in the participants table
+    const { error: updateError } = await supabaseAdmin
+      .from('rocket_participants')
+      .update({ ticket_url: publicUrl })
+      .eq('id', participantId);
+
+    if (updateError) {
+      console.error('[upload-ticket] update error:', updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, ticket_url: publicUrl });
+  } catch (err) {
+    console.error('[upload-ticket] unexpected:', err);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }
