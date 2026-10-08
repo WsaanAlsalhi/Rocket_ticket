@@ -1,132 +1,62 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+// Admin client using service_role — bypasses RLS (server only)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+);
 
-export async function POST(request) {
-    try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Generate a random Mission ID like MSN-XXXXXX
+function generateMissionId() {
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `MSN-${rand}`;
+}
 
-        if (!supabaseUrl) {
-            return NextResponse.json(
-                { error: "NEXT_PUBLIC_SUPABASE_URL is missing." },
-                { status: 500 }
-            );
-        }
+// Generate a random seat like A12, F37, etc.
+function generateSeat() {
+  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 6)); // A–F
+  const number = Math.floor(Math.random() * 50) + 1;
+  return `${letter}${number}`;
+}
 
-        if (!serviceRoleKey) {
-            return NextResponse.json(
-                { error: "SUPABASE_SERVICE_ROLE_KEY is missing." },
-                { status: 500 }
-            );
-        }
+export async function POST(req) {
+  try {
+    const { name, country, email } = await req.json();
 
-        const supabase = createClient(
-            supabaseUrl,
-            serviceRoleKey
-        );
-
-        const body = await request.json();
-
-        const name =
-            typeof body.name === "string"
-                ? body.name.trim()
-                : "";
-
-        const country =
-            typeof body.country === "string"
-                ? body.country.trim()
-                : "";
-
-        const email =
-            typeof body.email === "string" &&
-            body.email.trim()
-                ? body.email.trim()
-                : null;
-
-        if (!name || !country) {
-            return NextResponse.json(
-                {
-                    error: "Name and country are required."
-                },
-                { status: 400 }
-            );
-        }
-
-        const { data: lastParticipant, error: readError } =
-            await supabase
-                .from("rocket_participants")
-                .select("id")
-                .order("id", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-        if (readError) {
-            console.error("Supabase read error:", readError);
-
-            return NextResponse.json(
-                {
-                    error: "Could not read participant data.",
-                    details: readError.message
-                },
-                { status: 500 }
-            );
-        }
-
-        const nextNumber =
-            (lastParticipant?.id || 0) + 1;
-
-        const missionId =
-            `RM-${String(nextNumber).padStart(4, "0")}`;
-
-        const seat =
-            `A-${String(nextNumber).padStart(3, "0")}`;
-
-        const { data, error: insertError } =
-            await supabase
-                .from("rocket_participants")
-                .insert({
-                    name,
-                    country,
-                    email,
-                    mission_id: missionId,
-                    seat
-                })
-                .select()
-                .single();
-
-        if (insertError) {
-            console.error(
-                "Supabase insert error:",
-                insertError
-            );
-
-            return NextResponse.json(
-                {
-                    error: "Could not save participant.",
-                    details: insertError.message
-                },
-                { status: 500 }
-            );
-        }
-
-        return NextResponse.json({
-            success: true,
-            participant: data
-        });
-
-    } catch (error) {
-        console.error("Register API error:", error);
-
-        return NextResponse.json(
-            {
-                error: "Registration failed.",
-                details:
-                    error?.message ||
-                    "Unknown error."
-            },
-            { status: 500 }
-        );
+    // Basic validation
+    if (!name || !name.trim() || !country || !country.trim()) {
+      return NextResponse.json(
+        { error: 'Name and country are required' },
+        { status: 400 }
+      );
     }
+
+    const mission_id = generateMissionId();
+    const seat = generateSeat();
+
+    // Insert participant and return the created row
+    const { data, error } = await supabaseAdmin
+      .from('rocket_participants')
+      .insert([{
+        name: name.trim(),
+        country: country.trim(),
+        email: email?.trim() || null,
+        mission_id,
+        seat,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[register] supabase error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, participant: data });
+  } catch (err) {
+    console.error('[register] unexpected:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
