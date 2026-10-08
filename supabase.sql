@@ -1,5 +1,5 @@
 -- ============================================
--- 1) جدول المشاركين
+-- 1) Participants table
 -- ============================================
 create table if not exists public.rocket_participants (
   id uuid primary key default gen_random_uuid(),
@@ -13,14 +13,14 @@ create table if not exists public.rocket_participants (
 );
 
 -- ============================================
--- 2) Bucket للتذاكر (public read)
+-- 2) Tickets bucket (public read)
 -- ============================================
 insert into storage.buckets (id, name, public)
 values ('tickets', 'tickets', true)
 on conflict (id) do nothing;
 
 -- ============================================
--- 3) سياسات Storage
+-- 3) Storage policies
 -- ============================================
 drop policy if exists "service_role upload tickets" on storage.objects;
 create policy "service_role upload tickets"
