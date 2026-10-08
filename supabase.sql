@@ -1,16 +1,41 @@
+-- ============================================
+-- 1) جدول المشاركين
+-- ============================================
 create table if not exists public.rocket_participants (
-    id bigint generated always as identity primary key,
-    name text not null,
-    country text not null,
-    email text,
-    mission_id text unique not null,
-    seat text unique not null,
-    ticket_url text,
-    created_at timestamptz not null default now()
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  country text not null,
+  email text,
+  mission_id text not null unique,
+  seat text not null,
+  ticket_url text,
+  created_at timestamptz default now()
 );
 
-alter table public.rocket_participants
-add column if not exists email text;
+-- ============================================
+-- 2) Bucket للتذاكر (public read)
+-- ============================================
+insert into storage.buckets (id, name, public)
+values ('tickets', 'tickets', true)
+on conflict (id) do nothing;
 
-alter table public.rocket_participants
-add column if not exists ticket_url text;
+-- ============================================
+-- 3) سياسات Storage
+-- ============================================
+drop policy if exists "service_role upload tickets" on storage.objects;
+create policy "service_role upload tickets"
+on storage.objects for insert
+to service_role
+with check (bucket_id = 'tickets');
+
+drop policy if exists "public read tickets" on storage.objects;
+create policy "public read tickets"
+on storage.objects for select
+to public
+using (bucket_id = 'tickets');
+
+drop policy if exists "service_role update tickets" on storage.objects;
+create policy "service_role update tickets"
+on storage.objects for update
+to service_role
+using (bucket_id = 'tickets');
