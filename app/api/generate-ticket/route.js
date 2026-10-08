@@ -3,10 +3,8 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
-// Sharp needs the Node.js runtime (not Edge)
 export const runtime = 'nodejs';
 
-// Escape user input before embedding it in SVG
 function escapeXml(str = '') {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -37,7 +35,6 @@ export async function POST(req) {
       'ticket-template.png'
     );
 
-    // Make sure the template exists
     if (!fs.existsSync(templatePath)) {
       return NextResponse.json(
         { error: 'ticket-template.png not found in /public' },
@@ -46,38 +43,77 @@ export async function POST(req) {
     }
 
     const templateBuffer = fs.readFileSync(templatePath);
-    const { width, height } = await sharp(templateBuffer).metadata();
 
-    // Adjust x / y coordinates to match your ticket template design
+    // Get actual template dimensions so text scales with it
+    const meta = await sharp(templateBuffer).metadata();
+    const width = meta.width || 1900;
+    const height = meta.height || 1000;
+
+    // Font sizes as a fraction of the image width
+    const passengerSize = Math.round(width * 0.018);
+    const valueSize = Math.round(width * 0.013);
+
+    // All positions are fractions of image dimensions.
+    // Tweak the decimals if the text is slightly off.
     const svg = `
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <style>
-          .label { fill: #7fb3ff; font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 16px; letter-spacing: 2px; }
-          .value { fill: #ffffff; font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 30px; font-weight: 700; }
-          .small { fill: #cfd8e3; font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 22px; }
+          .dark {
+            fill: #0a1f44;
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-weight: 700;
+          }
         </style>
 
-        <text x="70" y="380" class="label">NAME</text>
-        <text x="70" y="420" class="value">${escapeXml(name)}</text>
+        <!-- PASSENGER NAME (below the PASSENGER label) -->
+        <text x="${Math.round(width * 0.42)}" y="${Math.round(height * 0.43)}"
+              font-size="${passengerSize}" class="dark">
+          ${escapeXml(name)}
+        </text>
 
-        <text x="70" y="500" class="label">COUNTRY</text>
-        <text x="70" y="540" class="small">${escapeXml(country || '—')}</text>
+        <!-- MISSION ID -->
+        <text x="${Math.round(width * 0.42)}" y="${Math.round(height * 0.60)}"
+              font-size="${valueSize}" class="dark">
+          ${escapeXml(missionId)}
+        </text>
 
-        <text x="70" y="620" class="label">MISSION ID</text>
-        <text x="70" y="660" class="small">${escapeXml(missionId)}</text>
+        <!-- SEAT -->
+        <text x="${Math.round(width * 0.515)}" y="${Math.round(height * 0.60)}"
+              font-size="${valueSize}" class="dark">
+          ${escapeXml(seat)}
+        </text>
 
-        <text x="70" y="740" class="label">SEAT</text>
-        <text x="70" y="780" class="small">${escapeXml(seat)}</text>
+        <!-- TEAM -->
+        <text x="${Math.round(width * 0.625)}" y="${Math.round(height * 0.60)}"
+              font-size="${valueSize}" class="dark">
+          TEAM A
+        </text>
+
+        <!-- DESTINATION -->
+        <text x="${Math.round(width * 0.42)}" y="${Math.round(height * 0.74)}"
+              font-size="${valueSize}" class="dark">
+          ${escapeXml((country || 'SPACE').toUpperCase())}
+        </text>
+
+        <!-- LAUNCH DATE -->
+        <text x="${Math.round(width * 0.515)}" y="${Math.round(height * 0.74)}"
+              font-size="${valueSize}" class="dark">
+          2026
+        </text>
+
+        <!-- STATUS -->
+        <text x="${Math.round(width * 0.625)}" y="${Math.round(height * 0.74)}"
+              font-size="${valueSize}" class="dark">
+          CONFIRMED
+        </text>
       </svg>
     `;
 
-    // Overlay the SVG text on top of the template
     const ticketBuffer = await sharp(templateBuffer)
       .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
       .png()
       .toBuffer();
 
-    // Return the PNG directly as a binary response
     return new NextResponse(ticketBuffer, {
       status: 200,
       headers: {
