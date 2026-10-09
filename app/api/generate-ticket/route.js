@@ -1,17 +1,40 @@
 import { NextResponse } from 'next/server';
-import sharp from 'sharp';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import fs from 'fs';
 import path from 'path';
 
 export const runtime = 'nodejs';
 
-function escapeXml(str = '') {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+// ---- Register fonts once at module load ----
+const FONT_DIR = path.join(process.cwd(), 'fonts');
+const REGULAR_FONT = path.join(FONT_DIR, 'DejaVuSans.ttf');
+const BOLD_FONT = path.join(FONT_DIR, 'DejaVuSans-Bold.ttf');
+
+let FONT_NAME = 'sans-serif';
+
+try {
+  if (fs.existsSync(REGULAR_FONT)) {
+    GlobalFonts.registerFromPath(REGULAR_FONT, 'RocketFont');
+    FONT_NAME = 'RocketFont';
+    console.log('[generate-ticket] Registered regular font:', REGULAR_FONT);
+  } else {
+    console.warn('[generate-ticket] Regular font NOT found:', REGULAR_FONT);
+  }
+
+  if (fs.existsSync(BOLD_FONT)) {
+    GlobalFonts.registerFromPath(BOLD_FONT, 'RocketFontBold');
+    console.log('[generate-ticket] Registered bold font:', BOLD_FONT);
+  } else {
+    console.warn('[generate-ticket] Bold font NOT found:', BOLD_FONT);
+  }
+
+  // Log what fonts are available for debugging
+  console.log(
+    '[generate-ticket] Registered families:',
+    GlobalFonts.families.map((f) => f.family)
+  );
+} catch (e) {
+  console.error('[generate-ticket] Font registration error:', e);
 }
 
 export async function POST(req) {
@@ -42,79 +65,58 @@ export async function POST(req) {
       );
     }
 
-    const templateBuffer = fs.readFileSync(templatePath);
+    // ---- 1) Load template ----
+    const templateImg = await loadImage(templatePath);
+    const width = templateImg.width;
+    const height = templateImg.height;
 
-    // Get actual template dimensions so text scales with it
-    const meta = await sharp(templateBuffer).metadata();
-    const width = meta.width || 1900;
-    const height = meta.height || 1000;
+    // ---- 2) Create canvas & draw template ----
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(templateImg, 0, 0);
 
-    // Font sizes as a fraction of the image width
-    const passengerSize = Math.round(width * 0.018);
-    const valueSize = Math.round(width * 0.013);
+    // ---- 3) Text helper ----
+    const drawText = (text, xFrac, yFrac, sizeFrac, opts = {}) => {
+      const fontSize = Math.round(width * sizeFrac);
+      const bold = opts.bold ? 'RocketFontBold, ' : '';
+      ctx.font = `${bold}${fontSize}px ${FONT_NAME}, sans-serif`;
+      ctx.fillStyle = opts.color || '#0a1f44';
+      ctx.textBaseline = 'top';
+      ctx.fillText(
+        String(text ?? ''),
+        Math.round(width * xFrac),
+        Math.round(height * yFrac)
+      );
+    };
 
-    // All positions are fractions of image dimensions.
-    // Tweak the decimals if the text is slightly off.
-    const svg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          .dark {
-            fill: #0a1f44;
-            font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-weight: 700;
-          }
-        </style>
+    // ---- 4) Draw fields (positions tuned to sit BELOW each label) ----
+    // PASSENGER NAME (below "PASSENGER" label)
+    drawText(name, 0.42, 0.42, 0.020, { bold: true });
 
-        <!-- PASSENGER NAME (below the PASSENGER label) -->
-        <text x="${Math.round(width * 0.42)}" y="${Math.round(height * 0.43)}"
-              font-size="${passengerSize}" class="dark">
-          ${escapeXml(name)}
-        </text>
+    // MISSION ID
+    drawText(missionId, 0.42, 0.585, 0.014, { bold: true });
 
-        <!-- MISSION ID -->
-        <text x="${Math.round(width * 0.42)}" y="${Math.round(height * 0.60)}"
-              font-size="${valueSize}" class="dark">
-          ${escapeXml(missionId)}
-        </text>
+    // SEAT
+    drawText(seat, 0.525, 0.585, 0.014, { bold: true });
 
-        <!-- SEAT -->
-        <text x="${Math.round(width * 0.515)}" y="${Math.round(height * 0.60)}"
-              font-size="${valueSize}" class="dark">
-          ${escapeXml(seat)}
-        </text>
+    // TEAM
+    drawText('TEAM A', 0.635, 0.585, 0.014, { bold: true });
 
-        <!-- TEAM -->
-        <text x="${Math.round(width * 0.625)}" y="${Math.round(height * 0.60)}"
-              font-size="${valueSize}" class="dark">
-          TEAM A
-        </text>
+    // DESTINATION
+    drawText((country || 'SPACE').toUpperCase(), 0.42, 0.72, 0.014, {
+      bold: true,
+    });
 
-        <!-- DESTINATION -->
-        <text x="${Math.round(width * 0.42)}" y="${Math.round(height * 0.74)}"
-              font-size="${valueSize}" class="dark">
-          ${escapeXml((country || 'SPACE').toUpperCase())}
-        </text>
+    // LAUNCH DATE
+    drawText('2026', 0.525, 0.72, 0.014, { bold: true });
 
-        <!-- LAUNCH DATE -->
-        <text x="${Math.round(width * 0.515)}" y="${Math.round(height * 0.74)}"
-              font-size="${valueSize}" class="dark">
-          2026
-        </text>
+    // STATUS
+    drawText('CONFIRMED', 0.635, 0.72, 0.014, { bold: true });
 
-        <!-- STATUS -->
-        <text x="${Math.round(width * 0.625)}" y="${Math.round(height * 0.74)}"
-              font-size="${valueSize}" class="dark">
-          CONFIRMED
-        </text>
-      </svg>
-    `;
+    // ---- 5) Return PNG ----
+    const buffer = canvas.toBuffer('image/png');
 
-    const ticketBuffer = await sharp(templateBuffer)
-      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
-      .png()
-      .toBuffer();
-
-    return new NextResponse(ticketBuffer, {
+    return new NextResponse(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
@@ -124,7 +126,7 @@ export async function POST(req) {
   } catch (err) {
     console.error('[generate-ticket] error:', err);
     return NextResponse.json(
-      { error: 'Failed to generate ticket' },
+      { error: err?.message || 'Failed to generate ticket' },
       { status: 500 }
     );
   }
