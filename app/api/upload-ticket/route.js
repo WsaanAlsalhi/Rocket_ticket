@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-// Buffer handling needs the Node.js runtime
 export const runtime = 'nodejs';
 
-// Admin client using service_role — bypasses RLS (server only)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -13,7 +11,6 @@ const supabaseAdmin = createClient(
 
 export async function POST(req) {
   try {
-    // ---- 0) Sanity check env vars ----
     const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
     const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -28,7 +25,6 @@ export async function POST(req) {
       );
     }
 
-    // ---- 1) Parse form data ----
     const formData = await req.formData();
     const file = formData.get('ticket');
     const participantId = formData.get('participantId');
@@ -53,7 +49,6 @@ export async function POST(req) {
       participantId,
     });
 
-    // ---- 2) Upload file to Supabase Storage ----
     const { data: uploadData, error: uploadError } = await supabaseAdmin
       .storage
       .from(bucket)
@@ -79,7 +74,6 @@ export async function POST(req) {
 
     console.log('[upload-ticket] Upload success:', uploadData);
 
-    // ---- 3) Get the public URL ----
     const { data: urlData } = supabaseAdmin
       .storage
       .from(bucket)
@@ -88,11 +82,11 @@ export async function POST(req) {
     const publicUrl = urlData.publicUrl;
     console.log('[upload-ticket] Public URL:', publicUrl);
 
-    // ---- 4) Save the URL in the participants table ----
+    // NOTE: column name is ticket_image_url (not ticket_url)
     const { data: updateData, error: updateError } = await supabaseAdmin
       .from('rocket_participants')
-      .update({ ticket_url: publicUrl })
-      .eq('id', participantId)
+      .update({ ticket_image_url: publicUrl })
+      .eq('id', Number(participantId))
       .select()
       .single();
 
