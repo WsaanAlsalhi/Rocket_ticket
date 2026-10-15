@@ -98,23 +98,6 @@ export default function AdminPage() {
               <p style={{ fontSize: 11, opacity: 0.5 }}>
                 🕒 {new Date(p.created_at).toLocaleString()}
               </p>
-
-              {p.ticket_image_url && (
-                <a
-                  href={p.ticket_image_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: 'inline-block',
-                    marginTop: 10,
-                    fontSize: 12,
-                    color: '#56ccf2',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {p.ticket_image_url}
-                </a>
-              )}
             </div>
           ))}
         </div>
