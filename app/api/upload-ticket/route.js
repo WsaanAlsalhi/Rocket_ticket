@@ -1,121 +1,81 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } }
-);
+// Adjust these to match your Supabase project.
+const BUCKET = process.env.SUPABASE_TICKET_BUCKET || 'tickets';
+const TABLE = 'rocket_participants';
+const URL_COLUMN = 'ticket_image_url';
 
-export async function POST(req) {
+function fail(status, error, details) {
+  console.error('upload-ticket:', error, details || '');
+  return NextResponse.json({ error, details }, { status });
+}
+
+export async function POST(request) {
   try {
-    const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!hasUrl || !hasServiceKey) {
-      console.error('[upload-ticket] Missing env vars:', {
-        hasUrl,
-        hasServiceKey,
-      });
-      return NextResponse.json(
-        { error: 'Server is missing Supabase env vars.' },
-        { status: 500 }
+    if (!supabaseUrl || !serviceKey) {
+      return fail(
+        500,
+        'Server is not configured.',
+        'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.'
       );
     }
 
-    const formData = await req.formData();
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
+
+    const formData = await request.formData();
     const file = formData.get('ticket');
     const participantId = formData.get('participantId');
 
-    if (!file || !participantId) {
-      return NextResponse.json(
-        { error: 'Missing file or participantId' },
-        { status: 400 }
-      );
+    if (!file || typeof file === 'string') {
+      return fail(400, 'Ticket file is missing.');
+    }
+    if (!participantId) {
+      return fail(400, 'Participant ID is missing.');
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const filePath = `${participantId}.png`;
 
-    const bucket = 'tickets';
-    const fileName = `ticket-${participantId}-${Date.now()}.png`;
-
-    console.log('[upload-ticket] Starting upload:', {
-      bucket,
-      fileName,
-      size: buffer.length,
-      participantId,
-    });
-
-    const { data: uploadData, error: uploadError } = await supabaseAdmin
-      .storage
-      .from(bucket)
-      .upload(fileName, buffer, {
+    // 1) Upload the PNG to Storage
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, buffer, {
         contentType: 'image/png',
         upsert: true,
       });
 
     if (uploadError) {
-      console.error('[upload-ticket] upload error (full):', {
-        message: uploadError.message,
-        statusCode: uploadError.statusCode,
-        error: uploadError.error,
-        name: uploadError.name,
-        bucket,
-        fileName,
-      });
-      return NextResponse.json(
-        { error: uploadError.message || 'Upload failed' },
-        { status: 500 }
-      );
+      return fail(500, 'Storage upload failed.', uploadError.message);
     }
 
-    console.log('[upload-ticket] Upload success:', uploadData);
+    // 2) Build the public URL
+    const { data: publicData } = supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(filePath);
+    const ticketUrl = publicData.publicUrl;
 
-    const { data: urlData } = supabaseAdmin
-      .storage
-      .from(bucket)
-      .getPublicUrl(fileName);
-
-    const publicUrl = urlData.publicUrl;
-    console.log('[upload-ticket] Public URL:', publicUrl);
-
-    // NOTE: column name is ticket_image_url (not ticket_url)
-    const { data: updateData, error: updateError } = await supabaseAdmin
-      .from('rocket_participants')
-      .update({ ticket_image_url: publicUrl })
-      .eq('id', Number(participantId))
-      .select()
-      .single();
+    // 3) Save the URL on the participant row
+    const { error: updateError } = await supabase
+      .from(TABLE)
+      .update({ [URL_COLUMN]: ticketUrl })
+      .eq('id', participantId);
 
     if (updateError) {
-      console.error('[upload-ticket] update error (full):', {
-        message: updateError.message,
-        code: updateError.code,
-        details: updateError.details,
-        hint: updateError.hint,
-        participantId,
-      });
-      return NextResponse.json(
-        { error: updateError.message || 'Could not save ticket URL' },
-        { status: 500 }
-      );
+      return fail(500, 'Saving the ticket URL failed.', updateError.message);
     }
 
-    console.log('[upload-ticket] DB updated:', updateData);
-
-    return NextResponse.json({
-      success: true,
-      ticket_url: publicUrl,
-      participant: updateData,
-    });
+    return NextResponse.json({ ticket_url: ticketUrl });
   } catch (err) {
-    console.error('[upload-ticket] unexpected error:', err);
-    return NextResponse.json(
-      { error: err?.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return fail(500, 'Unexpected upload error.', err?.message);
   }
 }
