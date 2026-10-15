@@ -1,8 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  outputFileTracingIncludes: {
-    '/api/generate-ticket': ['./fonts/**/*'],
-    '/api/upload-ticket': ['./fonts/**/*'],
+  experimental: {
+    serverComponentsExternalPackages: ['@napi-rs/canvas'],
+    outputFileTracingIncludes: {
+      '/api/generate-ticket': [
+        './fonts/**/*',
+        './public/ticket-template.png',
+        './public/stickers/**/*',
+      ],
+    },
   },
 };
 
