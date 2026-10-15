@@ -17,7 +17,8 @@ function ensureFont() {
   fontReady = true;
 }
 
-// x و y نسب من عرض/ارتفاع التذكرة، و maxW أقصى عرض للنص، و size حجم الخط نسبة للارتفاع
+// x and y are ratios of the ticket width/height, maxW is the max text width
+// (ratio of width), and size is the starting font size (ratio of height).
 const FIELDS = [
   { key: 'name',        x: 0.3207, y: 0.492, maxW: 0.40, size: 0.052 },
   { key: 'missionId',   x: 0.3062, y: 0.626, maxW: 0.14, size: 0.036 },
@@ -28,6 +29,7 @@ const FIELDS = [
   { key: 'status',      x: 0.6036, y: 0.773, maxW: 0.14, size: 0.034 },
 ];
 
+// Shrinks the font until the text fits within maxW, then draws it.
 function drawFitted(ctx, text, x, y, maxW, startSize) {
   let size = startSize;
   ctx.font = `${size}px DejaVu`;
@@ -45,10 +47,13 @@ export async function POST(request) {
     const country = String(body.country || '').trim().slice(0, 40);
 
     if (!name || !country) {
-      return NextResponse.json({ error: 'الاسم والدولة مطلوبان' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Name and country are required.' },
+        { status: 400 }
+      );
     }
 
-    // قيم افتراضية، عدّلها حسب ما تريد
+    // Default values for fields that are not sent by the client. Adjust as needed.
     const values = {
       name,
       missionId: String(body.missionId || ''),
@@ -69,7 +74,8 @@ export async function POST(request) {
 
     ctx.drawImage(template, 0, 0);
 
-    ctx.fillStyle = '#0b1220'; 
+    // Dark text color so it is visible on the white area of the ticket.
+    ctx.fillStyle = '#0b1220';
     ctx.textBaseline = 'alphabetic';
 
     for (const f of FIELDS) {
@@ -86,6 +92,9 @@ export async function POST(request) {
     });
   } catch (err) {
     console.error('generate-ticket error:', err);
-    return NextResponse.json({ error: 'فشل توليد التذكرة' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to generate the ticket.' },
+      { status: 500 }
+    );
   }
 }
