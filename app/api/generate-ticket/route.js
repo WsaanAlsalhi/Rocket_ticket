@@ -1,165 +1,56 @@
 import { NextResponse } from 'next/server';
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// ============================================================
-// FONT LOADING — try every possible path until one works
-// ============================================================
-const CANDIDATE_DIRS = [
-  path.join(process.cwd(), 'fonts'),
-  path.join(process.cwd(), 'public', 'fonts'),
-  '/var/task/fonts',
-  '/usr/share/fonts/truetype/dejavu',
-  '/usr/share/fonts/dejavu',
-];
+const fontPath = path.join(process.cwd(), 'fonts', 'DejaVuSans.ttf');
+const templatePath = path.join(process.cwd(), 'public', 'ticket-template.png');
 
-function findFont(fileName) {
-  for (const dir of CANDIDATE_DIRS) {
-    const full = path.join(dir, fileName);
-    try {
-      if (fs.existsSync(full)) {
-        const buf = fs.readFileSync(full);
-        if (buf.length > 1000) {
-          return { path: full, buffer: buf };
-        }
-      }
-    } catch (_) {}
+let fontReady = false;
+function ensureFont() {
+  if (fontReady) return;
+  if (fs.existsSync(fontPath)) {
+    GlobalFonts.registerFromPath(fontPath, 'DejaVu');
   }
-  return null;
+  fontReady = true;
 }
 
-let FONT_FAMILY = 'sans-serif';
-let BOLD_FAMILY = 'sans-serif';
-let FONTS_OK = false;
-
-try {
-  const regular = findFont('DejaVuSans.ttf');
-  const bold = findFont('DejaVuSans-Bold.ttf');
-
-  if (regular) {
-    GlobalFonts.register(regular.buffer, 'RocketFont');
-    FONT_FAMILY = 'RocketFont';
-    FONTS_OK = true;
-    console.log(
-      `[generate-ticket] ✅ Regular font from ${regular.path} (${regular.buffer.length} bytes)`
-    );
-  } else {
-    console.error('[generate-ticket] ❌ DejaVuSans.ttf NOT FOUND');
-  }
-
-  if (bold) {
-    GlobalFonts.register(bold.buffer, 'RocketFontBold');
-    BOLD_FAMILY = 'RocketFontBold';
-    console.log(
-      `[generate-ticket] ✅ Bold font from ${bold.path} (${bold.buffer.length} bytes)`
-    );
-  } else {
-    console.warn('[generate-ticket] ⚠️ DejaVuSans-Bold.ttf NOT FOUND, using regular');
-    BOLD_FAMILY = FONT_FAMILY;
-  }
-
-  console.log(
-    '[generate-ticket] Available families:',
-    GlobalFonts.families.map((f) => f.family).join(', ')
-  );
-} catch (e) {
-  console.error('[generate-ticket] Font init error:', e);
-}
-
-// ============================================================
-// ROUTE
-// ============================================================
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const name = body.name;
-    const country = body.country;
-    const missionId = body.mission_id || body.missionId;
-    const seat = body.seat;
+    const body = await request.json();
+    const name = String(body.name || '').trim().slice(0, 40);
+    const country = String(body.country || '').trim().slice(0, 40);
+    const missionId = String(body.missionId || '').trim();
+    const seat = String(body.seat || '').trim();
 
-    if (!name || !missionId || !seat) {
+    if (!name || !country) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'الاسم والدولة مطلوبان' },
         { status: 400 }
       );
     }
 
-    if (!FONTS_OK) {
-      console.error('[generate-ticket] Refusing: fonts not loaded');
-      return NextResponse.json(
-        {
-          error:
-            'Server fonts not loaded. Check terminal logs. Make sure fonts/DejaVuSans.ttf exists.',
-        },
-        { status: 500 }
-      );
-    }
+    ensureFont();
 
-    const templatePath = path.join(
-      process.cwd(),
-      'public',
-      'ticket-template.png'
-    );
-
-    if (!fs.existsSync(templatePath)) {
-      return NextResponse.json(
-        { error: 'ticket-template.png not found in /public' },
-        { status: 500 }
-      );
-    }
-
-    // Load template
-    const templateImg = await loadImage(templatePath);
-    const width = templateImg.width;
-    const height = templateImg.height;
-
-    // Create canvas
-    const canvas = createCanvas(width, height);
+    const template = await loadImage(fs.readFileSync(templatePath));
+    const canvas = createCanvas(template.width, template.height);
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(templateImg, 0, 0);
 
-    // Text helper
-    const drawText = (text, xFrac, yFrac, sizeFrac, opts = {}) => {
-      const fontSize = Math.round(width * sizeFrac);
-      const family = opts.bold ? BOLD_FAMILY : FONT_FAMILY;
-      ctx.font = `${fontSize}px "${family}"`;
-      ctx.fillStyle = opts.color || '#0a1f44';
-      ctx.textBaseline = 'top';
-      ctx.fillText(
-        String(text ?? ''),
-        Math.round(width * xFrac),
-        Math.round(height * yFrac)
-      );
-    };
+    ctx.drawImage(template, 0, 0);
 
-    // ---- Draw all fields ----
-    // PASSENGER NAME (bigger, right under "PASSENGER" label)
-    drawText(name, 0.42, 0.415, 0.020, { bold: true });
+    // عدّل المواضع والأحجام حسب تصميم تذكرتك
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 48px DejaVu';
+    ctx.fillText(name, 120, 260);
 
-    // MISSION ID
-    drawText(missionId, 0.42, 0.585, 0.014, { bold: true });
+    ctx.font = '36px DejaVu';
+    ctx.fillText(country, 120, 330);
+    ctx.fillText(`Mission: ${missionId}`, 120, 400);
+    ctx.fillText(`Seat: ${seat}`, 120, 460);
 
-    // SEAT
-    drawText(seat, 0.525, 0.585, 0.014, { bold: true });
-
-    // TEAM
-    drawText('TEAM A', 0.635, 0.585, 0.014, { bold: true });
-
-    // DESTINATION
-    drawText((country || 'SPACE').toUpperCase(), 0.42, 0.72, 0.014, {
-      bold: true,
-    });
-
-    // LAUNCH DATE
-    drawText('2026', 0.525, 0.72, 0.014, { bold: true });
-
-    // STATUS
-    drawText('CONFIRMED', 0.635, 0.72, 0.014, { bold: true });
-
-    // Return PNG
     const buffer = canvas.toBuffer('image/png');
 
     return new NextResponse(buffer, {
@@ -170,9 +61,9 @@ export async function POST(req) {
       },
     });
   } catch (err) {
-    console.error('[generate-ticket] error:', err);
+    console.error('generate-ticket error:', err);
     return NextResponse.json(
-      { error: err?.message || 'Failed to generate ticket' },
+      { error: 'Fail' },
       { status: 500 }
     );
   }
