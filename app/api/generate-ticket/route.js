@@ -1,117 +1,81 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs';
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FONT_FAMILY = 'TicketFont';
+// Adjust these to match your Supabase project.
+const BUCKET = process.env.SUPABASE_TICKET_BUCKET || 'tickets';
+const TABLE = 'participants';
+const URL_COLUMN = 'ticket_image_url';
 
-// Candidate locations, in case the serverless bundle changes the working directory.
-const FONT_PATHS = [
-  path.join(process.cwd(), 'fonts', 'DejaVuSans.ttf'),
-  path.join(process.cwd(), '.next', 'server', 'fonts', 'DejaVuSans.ttf'),
-  path.join(__dirname, '..', '..', '..', '..', 'fonts', 'DejaVuSans.ttf'),
-];
-const TEMPLATE_PATH = path.join(process.cwd(), 'public', 'ticket-template.png');
-
-let fontReady = false;
-function ensureFont() {
-  if (fontReady) return;
-  for (const p of FONT_PATHS) {
-    try {
-      if (fs.existsSync(p)) {
-        const key = GlobalFonts.register(fs.readFileSync(p), FONT_FAMILY);
-        if (key) {
-          fontReady = true;
-          console.log('Font registered from:', p);
-          return;
-        }
-      }
-    } catch (e) {
-      console.error('Font load error for', p, e);
-    }
-  }
-  console.error('Font could not be loaded. Tried:', FONT_PATHS);
-}
-
-// x and y are ratios of the ticket width/height, maxW is the max text width
-// (ratio of width), and size is the starting font size (ratio of height).
-const FIELDS = [
-  { key: 'name',        x: 0.3207, y: 0.492, maxW: 0.40, size: 0.052 },
-  { key: 'missionId',   x: 0.3062, y: 0.626, maxW: 0.14, size: 0.036 },
-  { key: 'seat',        x: 0.4810, y: 0.626, maxW: 0.12, size: 0.036 },
-  { key: 'team',        x: 0.6248, y: 0.626, maxW: 0.17, size: 0.036 },
-  { key: 'destination', x: 0.2895, y: 0.773, maxW: 0.14, size: 0.034 },
-  { key: 'launchDate',  x: 0.4588, y: 0.773, maxW: 0.13, size: 0.034 },
-  { key: 'status',      x: 0.6036, y: 0.773, maxW: 0.14, size: 0.034 },
-];
-
-function drawFitted(ctx, text, x, y, maxW, startSize) {
-  let size = Math.round(startSize);
-  ctx.font = `${size}px ${FONT_FAMILY}`;
-  while (ctx.measureText(text).width > maxW && size > 10) {
-    size -= 1;
-    ctx.font = `${size}px ${FONT_FAMILY}`;
-  }
-  ctx.fillText(text, x, y);
+function fail(status, error, details) {
+  console.error('upload-ticket:', error, details || '');
+  return NextResponse.json({ error, details }, { status });
 }
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const name = String(body.name || '').trim().slice(0, 40);
-    const country = String(body.country || '').trim().slice(0, 40);
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!name || !country) {
-      return NextResponse.json(
-        { error: 'Name and country are required.' },
-        { status: 400 }
+    if (!supabaseUrl || !serviceKey) {
+      return fail(
+        500,
+        'Server is not configured.',
+        'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.'
       );
     }
 
-    const values = {
-      name,
-      missionId: String(body.missionId || ''),
-      seat: String(body.seat || ''),
-      team: String(body.team || country),
-      destination: String(body.destination || 'MARS'),
-      launchDate: String(body.launchDate || '2026'),
-      status: String(body.status || 'CONFIRMED'),
-    };
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
 
-    ensureFont();
+    const formData = await request.formData();
+    const file = formData.get('ticket');
+    const participantId = formData.get('participantId');
 
-    const template = await loadImage(fs.readFileSync(TEMPLATE_PATH));
-    const W = template.width;
-    const H = template.height;
-    const canvas = createCanvas(W, H);
-    const ctx = canvas.getContext('2d');
-
-    ctx.drawImage(template, 0, 0);
-
-    // Dark text color so it is visible on the white area of the ticket.
-    ctx.fillStyle = '#0b1220';
-    ctx.textBaseline = 'alphabetic';
-
-    for (const f of FIELDS) {
-      const text = values[f.key].toUpperCase();
-      if (!text) continue;
-      drawFitted(ctx, text, f.x * W, f.y * H, f.maxW * W, f.size * H);
+    if (!file || typeof file === 'string') {
+      return fail(400, 'Ticket file is missing.');
+    }
+    if (!participantId) {
+      return fail(400, 'Participant ID is missing.');
     }
 
-    const buffer = canvas.toBuffer('image/png');
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const filePath = `${participantId}.png`;
 
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' },
-    });
+    // 1) Upload the PNG to Storage
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, buffer, {
+        contentType: 'image/png',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return fail(500, 'Storage upload failed.', uploadError.message);
+    }
+
+    // 2) Build the public URL
+    const { data: publicData } = supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(filePath);
+    const ticketUrl = publicData.publicUrl;
+
+    // 3) Save the URL on the participant row
+    const { error: updateError } = await supabase
+      .from(TABLE)
+      .update({ [URL_COLUMN]: ticketUrl })
+      .eq('id', participantId);
+
+    if (updateError) {
+      return fail(500, 'Saving the ticket URL failed.', updateError.message);
+    }
+
+    return NextResponse.json({ ticket_url: ticketUrl });
   } catch (err) {
-    console.error('generate-ticket error:', err);
-    return NextResponse.json(
-      { error: 'Failed to generate the ticket.' },
-      { status: 500 }
-    );
+    return fail(500, 'Unexpected upload error.', err?.message);
   }
 }
