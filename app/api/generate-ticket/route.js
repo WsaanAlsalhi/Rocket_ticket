@@ -6,15 +6,34 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const fontPath = path.join(process.cwd(), 'fonts', 'DejaVuSans.ttf');
-const templatePath = path.join(process.cwd(), 'public', 'ticket-template.png');
+const FONT_FAMILY = 'TicketFont';
+
+// Candidate locations, in case the serverless bundle changes the working directory.
+const FONT_PATHS = [
+  path.join(process.cwd(), 'fonts', 'DejaVuSans.ttf'),
+  path.join(process.cwd(), '.next', 'server', 'fonts', 'DejaVuSans.ttf'),
+  path.join(__dirname, '..', '..', '..', '..', 'fonts', 'DejaVuSans.ttf'),
+];
+const TEMPLATE_PATH = path.join(process.cwd(), 'public', 'ticket-template.png');
 
 let fontReady = false;
 function ensureFont() {
   if (fontReady) return;
-  const ok = GlobalFonts.registerFromPath(fontPath, 'DejaVu');
-  if (!ok) console.error('Font failed to register:', fontPath);
-  fontReady = true;
+  for (const p of FONT_PATHS) {
+    try {
+      if (fs.existsSync(p)) {
+        const key = GlobalFonts.register(fs.readFileSync(p), FONT_FAMILY);
+        if (key) {
+          fontReady = true;
+          console.log('Font registered from:', p);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Font load error for', p, e);
+    }
+  }
+  console.error('Font could not be loaded. Tried:', FONT_PATHS);
 }
 
 // x and y are ratios of the ticket width/height, maxW is the max text width
@@ -29,13 +48,12 @@ const FIELDS = [
   { key: 'status',      x: 0.6036, y: 0.773, maxW: 0.14, size: 0.034 },
 ];
 
-// Shrinks the font until the text fits within maxW, then draws it.
 function drawFitted(ctx, text, x, y, maxW, startSize) {
-  let size = startSize;
-  ctx.font = `${size}px DejaVu`;
+  let size = Math.round(startSize);
+  ctx.font = `${size}px ${FONT_FAMILY}`;
   while (ctx.measureText(text).width > maxW && size > 10) {
     size -= 1;
-    ctx.font = `${size}px DejaVu`;
+    ctx.font = `${size}px ${FONT_FAMILY}`;
   }
   ctx.fillText(text, x, y);
 }
@@ -53,7 +71,6 @@ export async function POST(request) {
       );
     }
 
-    // Default values for fields that are not sent by the client. Adjust as needed.
     const values = {
       name,
       missionId: String(body.missionId || ''),
@@ -66,7 +83,7 @@ export async function POST(request) {
 
     ensureFont();
 
-    const template = await loadImage(fs.readFileSync(templatePath));
+    const template = await loadImage(fs.readFileSync(TEMPLATE_PATH));
     const W = template.width;
     const H = template.height;
     const canvas = createCanvas(W, H);
