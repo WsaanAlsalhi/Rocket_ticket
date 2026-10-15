@@ -86,7 +86,7 @@ export default function Home() {
       setParticipant(p);
       setTicketImage(objectUrl);
 
-      // 3) Upload ticket to Supabase Storage and save ticket_url
+      // 3) Upload ticket to Supabase Storage + save ticket_image_url
       try {
         const formData = new FormData();
         formData.append('ticket', blob, `${p.mission_id}.png`);
@@ -226,13 +226,25 @@ export default function Home() {
             <div className="email-success">{saveMessage}</div>
           )}
 
-          <button className="download-button" onClick={downloadTicket}>
-            Download My Ticket
-          </button>
+          <div className="actions">
+            <button className="download-button" onClick={downloadTicket}>
+              ⬇ Download My Ticket
+            </button>
+
+            <a
+              href="/stickers/sticker.jpeg"
+              download="Rocket-Mission-Sticker.jpeg"
+              className="secondary-button"
+              style={{ textDecoration: 'none' }}
+            >
+              🎨 Download Sticker
+            </a>
+          </div>
 
           <button
             className="secondary-button"
             onClick={createAnotherTicket}
+            style={{ marginTop: 12 }}
           >
             Create Another Ticket
           </button>
