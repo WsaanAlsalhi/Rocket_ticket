@@ -3,38 +3,33 @@ import sharp from "sharp";
 import fs from "fs/promises";
 import path from "path";
 
+export const runtime = "nodejs";
+
+function escapeXml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+}
+
 export async function POST(request) {
     try {
         const body = await request.json();
 
-        const name = String(body.name || "")
-            .trim()
-            .toUpperCase();
-
-        const missionId = String(body.mission_id || "")
-            .trim()
-            .toUpperCase();
-
-        const seat = String(body.seat || "")
-            .trim()
-            .toUpperCase();
-
-        const country = String(body.country || "")
-            .trim()
-            .toUpperCase();
+        const name = String(body.name || "").trim().toUpperCase();
+        const missionId = String(body.mission_id || "").trim().toUpperCase();
+        const seat = String(body.seat || "").trim().toUpperCase();
+        const country = String(body.country || "").trim().toUpperCase();
 
         if (!name || !missionId || !seat || !country) {
             return NextResponse.json(
-                {
-                    error: "Missing ticket information."
-                },
-                {
-                    status: 400
-                }
+                { error: "Missing ticket information." },
+                { status: 400 }
             );
         }
 
-        // Original ticket template
         const templatePath = path.join(
             process.cwd(),
             "public",
@@ -42,155 +37,103 @@ export async function POST(request) {
         );
 
         const template = await fs.readFile(templatePath);
+        const metadata = await sharp(template).metadata();
 
-        /*
-         * Original template:
-         * 1774 x 887
-         *
-         * Text is positioned according to
-         * the actual ticket design.
-         */
+        if (!metadata.width || !metadata.height) {
+            throw new Error("Could not read ticket template dimensions.");
+        }
+
+        // Scale the overlay to the actual template dimensions.
+        const width = metadata.width;
+        const height = metadata.height;
+        const sx = width / 1774;
+        const sy = height / 887;
 
         const svg = `
         <svg
-            width="1774"
-            height="887"
-            viewBox="0 0 1774 887"
             xmlns="http://www.w3.org/2000/svg"
+            width="${width}"
+            height="${height}"
+            viewBox="0 0 1774 887"
         >
-
-            <!-- ============================== -->
-            <!-- PASSENGER -->
-            <!-- ============================== -->
-
-            <text
-                x="925"
-                y="405"
-                text-anchor="middle"
+            <g
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="38"
-                font-weight="600"
-                letter-spacing="0.8"
                 fill="#111111"
             >
-                ${escapeXml(name)}
-            </text>
+                <!-- Passenger name -->
+                <text
+                    x="925"
+                    y="365"
+                    text-anchor="middle"
+                    font-size="34"
+                    font-weight="500"
+                    letter-spacing="0.5"
+                >${escapeXml(name)}</text>
 
+                <!-- Mission ID -->
+                <text
+                    x="625"
+                    y="550"
+                    text-anchor="middle"
+                    font-size="17"
+                    font-weight="500"
+                >${escapeXml(missionId)}</text>
 
-            <!-- ============================== -->
-            <!-- FIRST ROW -->
-            <!-- ============================== -->
+                <!-- Seat -->
+                <text
+                    x="905"
+                    y="550"
+                    text-anchor="middle"
+                    font-size="17"
+                    font-weight="500"
+                >${escapeXml(seat)}</text>
 
-            <!-- Mission ID -->
+                <!-- Team -->
+                <text
+                    x="1150"
+                    y="550"
+                    text-anchor="middle"
+                    font-size="17"
+                    font-weight="500"
+                >PATRICK</text>
 
-            <text
-                x="625"
-                y="535"
-                text-anchor="middle"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18"
-                font-weight="600"
-                letter-spacing="0.3"
-                fill="#111111"
-            >
-                ${escapeXml(missionId)}
-            </text>
+                <!-- Destination -->
+                <text
+                    x="610"
+                    y="680"
+                    text-anchor="middle"
+                    font-size="17"
+                    font-weight="500"
+                >${escapeXml(country)}</text>
 
+                <!-- Launch date -->
+                <text
+                    x="885"
+                    y="680"
+                    text-anchor="middle"
+                    font-size="17"
+                    font-weight="500"
+                >2026</text>
 
-            <!-- Seat -->
-
-            <text
-                x="905"
-                y="535"
-                text-anchor="middle"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18"
-                font-weight="600"
-                letter-spacing="0.3"
-                fill="#111111"
-            >
-                ${escapeXml(seat)}
-            </text>
-
-
-            <!-- Team -->
-
-            <text
-                x="1150"
-                y="535"
-                text-anchor="middle"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18"
-                font-weight="600"
-                letter-spacing="0.3"
-                fill="#111111"
-            >
-                PATRICK
-            </text>
-
-
-            <!-- ============================== -->
-            <!-- SECOND ROW -->
-            <!-- ============================== -->
-
-            <!-- Destination -->
-
-            <text
-                x="610"
-                y="665"
-                text-anchor="middle"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18"
-                font-weight="600"
-                letter-spacing="0.3"
-                fill="#111111"
-            >
-                ${escapeXml(country)}
-            </text>
-
-
-            <!-- Launch Date -->
-
-            <text
-                x="885"
-                y="665"
-                text-anchor="middle"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18"
-                font-weight="600"
-                letter-spacing="0.3"
-                fill="#111111"
-            >
-                2026
-            </text>
-
-
-            <!-- Status -->
-
-            <text
-                x="1170"
-                y="665"
-                text-anchor="middle"
-                font-family="Arial, Helvetica, sans-serif"
-                font-size="18"
-                font-weight="600"
-                letter-spacing="0.3"
-                fill="#111111"
-            >
-                CLEARED
-            </text>
-
+                <!-- Status -->
+                <text
+                    x="1170"
+                    y="680"
+                    text-anchor="middle"
+                    font-size="17"
+                    font-weight="500"
+                >CLEARED</text>
+            </g>
         </svg>
         `;
 
-        // Put the text directly onto the original PNG
         const finalImage = await sharp(template)
             .composite([
                 {
                     input: Buffer.from(svg),
                     top: 0,
-                    left: 0
-                }
+                    left: 0,
+                },
             ])
             .png()
             .toBuffer();
@@ -199,34 +142,17 @@ export async function POST(request) {
             status: 200,
             headers: {
                 "Content-Type": "image/png",
-                "Content-Disposition": `inline; filename="${missionId}.png"`
-            }
+                "Content-Disposition": `inline; filename="${missionId}.png"`,
+                "Cache-Control": "no-store",
+            },
         });
 
     } catch (error) {
         console.error("Ticket generation error:", error);
 
         return NextResponse.json(
-            {
-                error: "Failed to generate ticket."
-            },
-            {
-                status: 500
-            }
+            { error: "Failed to generate ticket. Check the template and server logs." },
+            { status: 500 }
         );
     }
-}
-
-
-/**
- * Escape XML characters before inserting
- * user-provided text into the SVG.
- */
-function escapeXml(value) {
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&apos;");
 }
