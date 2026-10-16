@@ -34,6 +34,7 @@ export async function POST(request) {
             );
         }
 
+        // Original ticket template
         const templatePath = path.join(
             process.cwd(),
             "public",
@@ -42,23 +43,33 @@ export async function POST(request) {
 
         const template = await fs.readFile(templatePath);
 
+        /*
+         * Original template size:
+         * 1774 x 887
+         *
+         * All text positions below are based on
+         * the original ticket design.
+         */
+
         const svg = `
         <svg
-            width="1536"
-            height="768"
-            viewBox="0 0 1536 768"
+            width="1774"
+            height="887"
+            viewBox="0 0 1774 887"
             xmlns="http://www.w3.org/2000/svg"
         >
 
-            <!-- PASSENGER NAME -->
+            <!-- ================================= -->
+            <!-- PASSENGER -->
+            <!-- ================================= -->
 
             <text
-                x="900"
-                y="312"
+                x="925"
+                y="365"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="42"
-                font-weight="800"
+                font-weight="700"
                 letter-spacing="1"
                 fill="#000000"
             >
@@ -66,90 +77,94 @@ export async function POST(request) {
             </text>
 
 
+            <!-- ================================= -->
+            <!-- ROW 1 -->
             <!-- MISSION ID -->
+            <!-- SEAT -->
+            <!-- TEAM -->
+            <!-- ================================= -->
 
             <text
-                x="610"
-                y="450"
+                x="625"
+                y="513"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="19"
+                font-size="20"
                 font-weight="700"
+                letter-spacing="0.5"
                 fill="#000000"
             >
                 ${escapeXml(missionId)}
             </text>
 
-
-            <!-- SEAT -->
-
             <text
-                x="850"
-                y="450"
+                x="905"
+                y="513"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="19"
+                font-size="20"
                 font-weight="700"
+                letter-spacing="0.5"
                 fill="#000000"
             >
                 ${escapeXml(seat)}
             </text>
 
-
-            <!-- TEAM -->
-
             <text
-                x="1080"
-                y="450"
+                x="1150"
+                y="513"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="19"
+                font-size="20"
                 font-weight="700"
+                letter-spacing="0.5"
                 fill="#000000"
             >
                 PATRICK
             </text>
 
 
+            <!-- ================================= -->
+            <!-- ROW 2 -->
             <!-- DESTINATION -->
+            <!-- LAUNCH DATE -->
+            <!-- STATUS -->
+            <!-- ================================= -->
 
             <text
                 x="610"
-                y="563"
+                y="643"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="19"
+                font-size="20"
                 font-weight="700"
+                letter-spacing="0.5"
                 fill="#000000"
             >
                 ${escapeXml(country)}
             </text>
 
-
-            <!-- LAUNCH DATE -->
-
             <text
-                x="850"
-                y="563"
+                x="885"
+                y="643"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="19"
+                font-size="20"
                 font-weight="700"
+                letter-spacing="0.5"
                 fill="#000000"
             >
                 2026
             </text>
 
-
-            <!-- STATUS -->
-
             <text
-                x="1080"
-                y="563"
+                x="1170"
+                y="643"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
-                font-size="19"
+                font-size="20"
                 font-weight="700"
+                letter-spacing="0.5"
                 fill="#000000"
             >
                 CLEARED
@@ -158,6 +173,7 @@ export async function POST(request) {
         </svg>
         `;
 
+        // Composite the text onto the original PNG template
         const finalImage = await sharp(template)
             .composite([
                 {
@@ -171,21 +187,14 @@ export async function POST(request) {
 
         return new NextResponse(finalImage, {
             status: 200,
-
             headers: {
                 "Content-Type": "image/png",
-
-                "Content-Disposition":
-                    `inline; filename="${missionId}.png"`
+                "Content-Disposition": `inline; filename="${missionId}.png"`
             }
         });
 
     } catch (error) {
-
-        console.error(
-            "Ticket generation error:",
-            error
-        );
+        console.error("Ticket generation error:", error);
 
         return NextResponse.json(
             {
@@ -199,6 +208,10 @@ export async function POST(request) {
 }
 
 
+/*
+ * Escape special XML characters so user input
+ * cannot break the SVG.
+ */
 function escapeXml(value) {
     return String(value)
         .replace(/&/g, "&amp;")
