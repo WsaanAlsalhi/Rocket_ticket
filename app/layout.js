@@ -1,14 +1,12 @@
-import './globals.css';
-
 export const metadata = {
-  title: 'Rocket Mission',
-  description: 'Get your personalized Rocket Mission ticket.',
+    title: "Rocket Mission",
+    description: "Join the Rocket Mission"
 };
 
 export default function RootLayout({ children }) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
+    return (
+        <html lang="en">
+            <body>{children}</body>
+        </html>
+    );
 }
