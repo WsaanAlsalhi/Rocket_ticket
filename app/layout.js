@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'Rocket Mission',
-  description: 'NASA-inspired digital mission ticket system',
+  description: 'Get your personalized Rocket Mission ticket.',
 };
 
 export default function RootLayout({ children }) {
