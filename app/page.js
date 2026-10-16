@@ -1,501 +1,301 @@
 "use client";
 
-import { useState } from "react";
-
+import { useEffect, useState } from "react";
 import "./globals.css";
 
-
 export default function Home() {
+    const [name, setName] = useState("");
+    const [country, setCountry] = useState("");
+    const [ticket, setTicket] = useState(null);
+    const [ticketImage, setTicketImage] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+    const [saveMessage, setSaveMessage] = useState("");
 
-    const [name, setName] =
-        useState("");
+    useEffect(() => {
+        return () => {
+            if (ticketImage) {
+                URL.revokeObjectURL(ticketImage);
+            }
+        };
+    }, [ticketImage]);
 
-    const [country, setCountry] =
-        useState("");
+    async function readResponse(response) {
+        const data = await response.json().catch(() => ({}));
 
-    const [ticket, setTicket] =
-        useState(null);
+        if (!response.ok) {
+            throw new Error(data.error || "The request failed.");
+        }
 
-    const [ticketImage, setTicketImage] =
-        useState(null);
-
-    const [loading, setLoading] =
-        useState(false);
-
-    const [saving, setSaving] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
-
+        return data;
+    }
 
     async function registerParticipant(event) {
-
         event.preventDefault();
 
         setError("");
-
+        setSaveMessage("");
         setLoading(true);
 
-
         try {
+            // Step 1: Register the participant.
+            const registerResponse = await fetch("/api/register", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    name,
+                    country,
+                }),
+            });
 
-            /*
-             * Step 1:
-             * Register participant
-             */
+            const participant = await readResponse(registerResponse);
 
-            const registerResponse =
-                await fetch(
-                    "/api/register",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-                            name,
-                            country
-                        })
-                    }
-                );
-
-
-            const registerData =
-                await registerResponse.json();
-
-
-            if (!registerResponse.ok) {
-
-                throw new Error(
-                    registerData.error ||
-                    "Registration failed."
-                );
-
-            }
-
-
-            /*
-             * Step 2:
-             * Generate the final PNG
-             */
-
-            const generateResponse =
-                await fetch(
-                    "/api/generate-ticket",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
-                            name:
-                                registerData.name,
-
-                            country:
-                                registerData.country,
-
-                            mission_id:
-                                registerData.mission_id,
-
-                            seat:
-                                registerData.seat
-
-                        })
-                    }
-                );
-
+            // Step 2: Generate the PNG ticket.
+            const generateResponse = await fetch(
+                "/api/generate-ticket",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        name: participant.name,
+                        country: participant.country,
+                        mission_id: participant.mission_id,
+                        seat: participant.seat,
+                    }),
+                }
+            );
 
             if (!generateResponse.ok) {
-
-                const data =
-                    await generateResponse.json();
-
-                throw new Error(
-                    data.error ||
-                    "Ticket generation failed."
-                );
-
+                const data = await generateResponse.json().catch(() => ({}));
+                throw new Error(data.error || "Ticket generation failed.");
             }
 
+            const blob = await generateResponse.blob();
+            const imageUrl = URL.createObjectURL(blob);
 
-            /*
-             * Step 3:
-             * Convert response to Blob
-             */
+            setTicket(participant);
+            setTicketImage(imageUrl);
 
-            const blob =
-                await generateResponse.blob();
+            // Step 3: Upload the ticket and save its URL.
+            setSaving(true);
 
+            try {
+                const formData = new FormData();
 
-            /*
-             * Step 4:
-             * Create temporary image URL
-             */
+                formData.append(
+                    "file",
+                    blob,
+                    `${participant.mission_id}.png`
+                );
 
-            const imageUrl =
-                URL.createObjectURL(blob);
+                formData.append("mission_id", participant.mission_id);
 
+                const uploadResponse = await fetch("/api/upload-ticket", {
+                    method: "POST",
+                    body: formData,
+                });
 
-            setTicket(
-                registerData
-            );
+                await readResponse(uploadResponse);
 
-            setTicketImage(
-                imageUrl
-            );
+                setSaveMessage("Ticket generated and saved successfully.");
+            } catch (uploadError) {
+                console.error("Ticket save error:", uploadError);
 
+                setSaveMessage(
+                    "Ticket generated, but automatic saving failed. You can still download it."
+                );
+            } finally {
+                setSaving(false);
+            }
 
-        } catch (error) {
-
-            console.error(error);
-
-            setError(
-                error.message ||
-                "Something went wrong."
-            );
-
+        } catch (requestError) {
+            console.error("Registration flow error:", requestError);
+            setError(requestError.message || "Something went wrong.");
         } finally {
-
             setLoading(false);
-
         }
-
     }
 
+    function downloadTicket() {
+        if (!ticketImage || !ticket) return;
 
-    async function saveTicket() {
+        const link = document.createElement("a");
+        link.href = ticketImage;
+        link.download = `Rocket-Mission-${ticket.mission_id}.png`;
 
-        if (!ticketImage || !ticket) {
-
-            return;
-
-        }
-
-
-        setSaving(true);
-
-        setError("");
-
-
-        try {
-
-            /*
-             * Download the generated image
-             * as a Blob.
-             */
-
-            const imageResponse =
-                await fetch(ticketImage);
-
-
-            const blob =
-                await imageResponse.blob();
-
-
-            /*
-             * Send PNG to Storage API.
-             */
-
-            const formData =
-                new FormData();
-
-
-            formData.append(
-                "file",
-                blob,
-                `${ticket.mission_id}.png`
-            );
-
-
-            formData.append(
-                "mission_id",
-                ticket.mission_id
-            );
-
-
-            const uploadResponse =
-                await fetch(
-                    "/api/upload-ticket",
-                    {
-                        method: "POST",
-
-                        body: formData
-                    }
-                );
-
-
-            const uploadData =
-                await uploadResponse.json();
-
-
-            if (!uploadResponse.ok) {
-
-                throw new Error(
-                    uploadData.error ||
-                    "Could not save ticket."
-                );
-
-            }
-
-
-            /*
-             * Download to user's computer.
-             */
-
-            const link =
-                document.createElement("a");
-
-
-            link.href =
-                ticketImage;
-
-
-            link.download =
-                `Rocket-Mission-${ticket.mission_id}.png`;
-
-
-            document.body.appendChild(link);
-
-
-            link.click();
-
-
-            link.remove();
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            setError(
-                error.message ||
-                "Could not save ticket."
-            );
-
-        } finally {
-
-            setSaving(false);
-
-        }
-
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     }
-
 
     function createAnotherTicket() {
-
         setName("");
-
         setCountry("");
-
         setTicket(null);
-
-        setTicketImage(null);
-
+        setTicketImage("");
         setError("");
-
+        setSaveMessage("");
     }
 
-
     return (
-
-        <main className="container">
-
+        <main className="page-container">
+            <header className="site-header">
+                <div className="brand-mark">R2S</div>
+                <div className="brand-copy">
+                    <span>RACE2SPACE OMAN</span>
+                    <small>ROCKET MISSION REGISTRATION</small>
+                </div>
+            </header>
 
             {!ticket && (
-
-                <section className="registration">
-
-                    <div className="logo">
+                <section className="registration-card">
+                    <div className="rocket-icon" aria-hidden="true">
                         🚀
                     </div>
 
+                    <p className="eyebrow">YOUR JOURNEY STARTS HERE</p>
 
-                    <h1 className="title">
-                        JOIN THE MISSION
-                    </h1>
-
+                    <h1>JOIN THE MISSION</h1>
 
                     <p className="subtitle">
                         Become part of the Rocket Mission.
                     </p>
 
-
-                    <form
-                        onSubmit={
-                            registerParticipant
-                        }
-                    >
-
+                    <form onSubmit={registerParticipant}>
                         <div className="form-group">
-
-                            <label>
+                            <label htmlFor="participant-name">
                                 Your Name
                             </label>
 
                             <input
+                                id="participant-name"
                                 type="text"
-
                                 value={name}
-
-                                onChange={
-                                    (event) =>
-                                        setName(
-                                            event.target.value
-                                        )
+                                onChange={(event) =>
+                                    setName(event.target.value)
                                 }
-
                                 placeholder="Enter your name"
-
                                 maxLength={50}
-
+                                autoComplete="name"
                                 required
                             />
-
                         </div>
 
-
                         <div className="form-group">
-
-                            <label>
+                            <label htmlFor="participant-country">
                                 Country
                             </label>
 
                             <input
+                                id="participant-country"
                                 type="text"
-
                                 value={country}
-
-                                onChange={
-                                    (event) =>
-                                        setCountry(
-                                            event.target.value
-                                        )
+                                onChange={(event) =>
+                                    setCountry(event.target.value)
                                 }
-
                                 placeholder="Enter your country"
-
                                 maxLength={40}
-
+                                autoComplete="country-name"
                                 required
                             />
-
                         </div>
-
 
                         <button
                             type="submit"
-
-                            className="submit-button"
-
+                            className="primary-button"
                             disabled={loading}
                         >
-
                             {loading
-
                                 ? "Generating Ticket..."
-
-                                : "🚀 Generate My Ticket"
-
-                            }
-
+                                : "Generate My Ticket"}
                         </button>
-
-
                     </form>
 
-
                     {error && (
-
-                        <div className="error">
+                        <p className="message error-message" role="alert">
                             {error}
-                        </div>
-
+                        </p>
                     )}
-
                 </section>
-
             )}
-
 
             {ticket && (
+                <section className="ticket-section">
+                    <p className="eyebrow">MISSION CONFIRMED</p>
 
-                <section className="result">
+                    <h1>YOUR MISSION TICKET</h1>
 
+                    <p className="ticket-intro">
+                        Your ticket has been generated.
+                    </p>
 
-                    <h2>
-                        MISSION TICKET
-                    </h2>
-
-
-                    <div className="ticket-wrapper">
-
-                        <img
-                            src={ticketImage}
-
-                            className="generated-ticket"
-
-                            alt="Generated Rocket Mission Ticket"
-                        />
-
-                    </div>
-
-
-                    <button
-                        className="download-button"
-
-                        onClick={
-                            saveTicket
-                        }
-
-                        disabled={saving}
-                    >
-
-                        {saving
-
-                            ? "Saving Ticket..."
-
-                            : "Download My Ticket"
-
-                        }
-
-                    </button>
-
-
-                    <button
-                        className="secondary-button"
-
-                        onClick={
-                            createAnotherTicket
-                        }
-                    >
-
-                        Create Another Ticket
-
-                    </button>
-
-
-                    {error && (
-
-                        <div className="error">
-                            {error}
+                    <div className="ticket-details">
+                        <div>
+                            <span>PASSENGER</span>
+                            <strong>{ticket.name}</strong>
                         </div>
 
+                        <div>
+                            <span>MISSION ID</span>
+                            <strong>{ticket.mission_id}</strong>
+                        </div>
+
+                        <div>
+                            <span>SEAT</span>
+                            <strong>{ticket.seat}</strong>
+                        </div>
+                    </div>
+
+                    <div className="ticket-image-wrapper">
+                        <img
+                            src={ticketImage}
+                            className="generated-ticket"
+                            alt={`Rocket Mission ticket for ${ticket.name}`}
+                        />
+                    </div>
+
+                    {saving && (
+                        <p className="message">
+                            Saving your ticket...
+                        </p>
                     )}
 
+                    {saveMessage && (
+                        <p className="message" role="status">
+                            {saveMessage}
+                        </p>
+                    )}
+
+                    <div className="action-buttons">
+                        <button
+                            type="button"
+                            className="primary-button"
+                            onClick={downloadTicket}
+                        >
+                            Download My Ticket
+                        </button>
+
+                        <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={createAnotherTicket}
+                        >
+                            Create Another Ticket
+                        </button>
+                    </div>
+
+                    {error && (
+                        <p className="message error-message" role="alert">
+                            {error}
+                        </p>
+                    )}
                 </section>
-
             )}
-
         </main>
-
     );
-
 }
