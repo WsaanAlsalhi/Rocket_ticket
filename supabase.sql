@@ -1,47 +1,53 @@
 -- ============================================
--- 1) Participants table
+-- ROCKET MISSION DATABASE
 -- ============================================
+
 create table if not exists public.rocket_participants (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  country text not null,
-  email text,
-  mission_id text not null unique,
-  seat text not null,
-  ticket_url text,
-  created_at timestamptz default now()
+
+    id bigint generated always as identity primary key,
+
+    name text not null,
+
+    country text not null,
+
+    mission_id text unique,
+
+    seat text unique,
+
+    ticket_image_url text,
+
+    created_at timestamptz not null default now()
+
 );
 
--- ============================================
--- 2) Create / ensure the "tickets" bucket (public read)
--- ============================================
-insert into storage.buckets (id, name, public)
-values ('tickets', 'tickets', true)
-on conflict (id) do update set public = true;
 
 -- ============================================
--- 3) Storage policies on storage.objects
+-- INDEXES
 -- ============================================
-drop policy if exists "service_role upload tickets" on storage.objects;
-create policy "service_role upload tickets"
-on storage.objects for insert
-to service_role
-with check (bucket_id = 'tickets');
 
-drop policy if exists "public read tickets" on storage.objects;
-create policy "public read tickets"
-on storage.objects for select
-to public
-using (bucket_id = 'tickets');
+create index if not exists rocket_participants_created_at_idx
+on public.rocket_participants(created_at desc);
 
-drop policy if exists "service_role update tickets" on storage.objects;
-create policy "service_role update tickets"
-on storage.objects for update
-to service_role
-using (bucket_id = 'tickets');
 
-drop policy if exists "service_role delete tickets" on storage.objects;
-create policy "service_role delete tickets"
-on storage.objects for delete
-to service_role
-using (bucket_id = 'tickets');
+create index if not exists rocket_participants_mission_id_idx
+on public.rocket_participants(mission_id);
+
+
+-- ============================================
+-- STORAGE BUCKET
+-- ============================================
+
+insert into storage.buckets (
+    id,
+    name,
+    public
+)
+
+values (
+    'rocket-tickets',
+    'rocket-tickets',
+    true
+)
+
+on conflict (id)
+do update set public = true;
