@@ -3,37 +3,27 @@ import sharp from "sharp";
 import fs from "fs/promises";
 import path from "path";
 
-
 export async function POST(request) {
-
     try {
-
         const body = await request.json();
 
+        const name = String(body.name || "")
+            .trim()
+            .toUpperCase();
 
-        const name =
-            String(body.name || "")
-                .trim()
-                .toUpperCase();
+        const missionId = String(body.mission_id || "")
+            .trim()
+            .toUpperCase();
 
-        const missionId =
-            String(body.mission_id || "")
-                .trim()
-                .toUpperCase();
+        const seat = String(body.seat || "")
+            .trim()
+            .toUpperCase();
 
-        const seat =
-            String(body.seat || "")
-                .trim()
-                .toUpperCase();
-
-        const country =
-            String(body.country || "")
-                .trim()
-                .toUpperCase();
-
+        const country = String(body.country || "")
+            .trim()
+            .toUpperCase();
 
         if (!name || !missionId || !seat || !country) {
-
             return NextResponse.json(
                 {
                     error: "Missing ticket information."
@@ -42,214 +32,191 @@ export async function POST(request) {
                     status: 400
                 }
             );
-
         }
 
-
         /*
-         * Original ticket template.
+         * Original ticket template
          */
 
-        const templatePath =
-            path.join(
-                process.cwd(),
-                "public",
-                "ticket-template.png"
-            );
+        const templatePath = path.join(
+            process.cwd(),
+            "public",
+            "ticket-template.png"
+        );
 
-
-        const template =
-            await fs.readFile(templatePath);
+        const template = await fs.readFile(templatePath);
 
 
         /*
-         * SVG overlay.
+         * Ticket dimensions:
+         * 1536 × 768
          *
-         * The coordinates are based on the
-         * 1536 x 768 ticket template.
+         * All coordinates below are based
+         * directly on the provided ticket design.
          */
 
         const svg = `
-
         <svg
             width="1536"
             height="768"
+            viewBox="0 0 1536 768"
             xmlns="http://www.w3.org/2000/svg"
         >
 
-            <style>
-
-                .name {
-                    font-family:
-                        Arial,
-                        Helvetica,
-                        sans-serif;
-
-                    font-size: 42px;
-
-                    font-weight: 800;
-
-                    fill: #111111;
-
-                    letter-spacing: 1px;
-                }
-
-
-                .value {
-                    font-family:
-                        Arial,
-                        Helvetica,
-                        sans-serif;
-
-                    font-size: 20px;
-
-                    font-weight: 700;
-
-                    fill: #111111;
-
-                    letter-spacing: 0.5px;
-                }
-
-            </style>
-
-
-            <!-- ==========================
+            <!-- =========================================
                  PASSENGER NAME
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="500"
-                y="319"
-                class="name"
+                x="823"
+                y="312"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="42"
+                font-weight="800"
+                letter-spacing="1"
+                fill="#111111"
             >
                 ${escapeXml(name)}
             </text>
 
 
-            <!-- ==========================
+            <!-- =========================================
                  MISSION ID
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="478"
-                y="455"
-                class="value"
+                x="560"
+                y="450"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="19"
+                font-weight="700"
+                fill="#111111"
             >
                 ${escapeXml(missionId)}
             </text>
 
 
-            <!-- ==========================
+            <!-- =========================================
                  SEAT
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="742"
-                y="455"
-                class="value"
+                x="815"
+                y="450"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="19"
+                font-weight="700"
+                fill="#111111"
             >
                 ${escapeXml(seat)}
             </text>
 
 
-            <!-- ==========================
+            <!-- =========================================
                  TEAM
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="958"
-                y="455"
-                class="value"
+                x="1050"
+                y="450"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="19"
+                font-weight="700"
+                fill="#111111"
             >
                 PATRICK
             </text>
 
 
-            <!-- ==========================
+            <!-- =========================================
                  DESTINATION
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="478"
-                y="568"
-                class="value"
+                x="555"
+                y="563"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="19"
+                font-weight="700"
+                fill="#111111"
             >
                 ${escapeXml(country)}
             </text>
 
 
-            <!-- ==========================
+            <!-- =========================================
                  LAUNCH DATE
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="742"
-                y="568"
-                class="value"
+                x="815"
+                y="563"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="19"
+                font-weight="700"
+                fill="#111111"
             >
                 2026
             </text>
 
 
-            <!-- ==========================
+            <!-- =========================================
                  STATUS
-            =========================== -->
+                 ========================================= -->
 
             <text
-                x="922"
-                y="568"
-                class="value"
+                x="1045"
+                y="563"
+                text-anchor="middle"
+                font-family="Arial, Helvetica, sans-serif"
+                font-size="19"
+                font-weight="700"
+                fill="#111111"
             >
                 CLEARED
             </text>
 
         </svg>
-
         `;
 
 
         /*
-         * Composite SVG over the original image.
+         * Put the generated text directly
+         * on top of the original ticket.
          */
 
-        const finalImage =
-            await sharp(template)
-
-                .composite([
-                    {
-                        input:
-                            Buffer.from(svg),
-
-                        top: 0,
-
-                        left: 0
-                    }
-                ])
-
-                .png()
-
-                .toBuffer();
+        const finalImage = await sharp(template)
+            .composite([
+                {
+                    input: Buffer.from(svg),
+                    top: 0,
+                    left: 0
+                }
+            ])
+            .png()
+            .toBuffer();
 
 
         /*
-         * Return generated PNG.
+         * Return final PNG
          */
 
-        return new NextResponse(
-            finalImage,
-            {
-                status: 200,
+        return new NextResponse(finalImage, {
+            status: 200,
 
-                headers: {
-                    "Content-Type":
-                        "image/png",
+            headers: {
+                "Content-Type": "image/png",
 
-                    "Content-Disposition":
-                        `inline; filename="${missionId}.png"`
-                }
+                "Content-Disposition":
+                    `inline; filename="${missionId}.png"`
             }
-        );
-
+        });
 
     } catch (error) {
 
@@ -258,49 +225,28 @@ export async function POST(request) {
             error
         );
 
-
         return NextResponse.json(
             {
-                error:
-                    "Failed to generate ticket."
+                error: "Failed to generate ticket."
             },
             {
                 status: 500
             }
         );
-
     }
-
 }
 
 
 /*
- * Prevent special characters in user
- * input from breaking the SVG.
+ * Escape user input before inserting
+ * it into SVG.
  */
 
 function escapeXml(value) {
-
     return String(value)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&apos;"
-        );
-
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
 }
