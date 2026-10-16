@@ -34,10 +34,6 @@ export async function POST(request) {
             );
         }
 
-        /*
-         * Original ticket template
-         */
-
         const templatePath = path.join(
             process.cwd(),
             "public",
@@ -45,15 +41,6 @@ export async function POST(request) {
         );
 
         const template = await fs.readFile(templatePath);
-
-
-        /*
-         * Ticket dimensions:
-         * 1536 × 768
-         *
-         * All coordinates below are based
-         * directly on the provided ticket design.
-         */
 
         const svg = `
         <svg
@@ -63,133 +50,113 @@ export async function POST(request) {
             xmlns="http://www.w3.org/2000/svg"
         >
 
-            <!-- =========================================
-                 PASSENGER NAME
-                 ========================================= -->
+            <!-- PASSENGER NAME -->
 
             <text
-                x="823"
+                x="900"
                 y="312"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="42"
                 font-weight="800"
                 letter-spacing="1"
-                fill="#111111"
+                fill="#000000"
             >
                 ${escapeXml(name)}
             </text>
 
 
-            <!-- =========================================
-                 MISSION ID
-                 ========================================= -->
+            <!-- MISSION ID -->
 
             <text
-                x="560"
+                x="610"
                 y="450"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="19"
                 font-weight="700"
-                fill="#111111"
+                fill="#000000"
             >
                 ${escapeXml(missionId)}
             </text>
 
 
-            <!-- =========================================
-                 SEAT
-                 ========================================= -->
+            <!-- SEAT -->
 
             <text
-                x="815"
+                x="850"
                 y="450"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="19"
                 font-weight="700"
-                fill="#111111"
+                fill="#000000"
             >
                 ${escapeXml(seat)}
             </text>
 
 
-            <!-- =========================================
-                 TEAM
-                 ========================================= -->
+            <!-- TEAM -->
 
             <text
-                x="1050"
+                x="1080"
                 y="450"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="19"
                 font-weight="700"
-                fill="#111111"
+                fill="#000000"
             >
                 PATRICK
             </text>
 
 
-            <!-- =========================================
-                 DESTINATION
-                 ========================================= -->
+            <!-- DESTINATION -->
 
             <text
-                x="555"
+                x="610"
                 y="563"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="19"
                 font-weight="700"
-                fill="#111111"
+                fill="#000000"
             >
                 ${escapeXml(country)}
             </text>
 
 
-            <!-- =========================================
-                 LAUNCH DATE
-                 ========================================= -->
+            <!-- LAUNCH DATE -->
 
             <text
-                x="815"
+                x="850"
                 y="563"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="19"
                 font-weight="700"
-                fill="#111111"
+                fill="#000000"
             >
                 2026
             </text>
 
 
-            <!-- =========================================
-                 STATUS
-                 ========================================= -->
+            <!-- STATUS -->
 
             <text
-                x="1045"
+                x="1080"
                 y="563"
                 text-anchor="middle"
                 font-family="Arial, Helvetica, sans-serif"
                 font-size="19"
                 font-weight="700"
-                fill="#111111"
+                fill="#000000"
             >
                 CLEARED
             </text>
 
         </svg>
         `;
-
-
-        /*
-         * Put the generated text directly
-         * on top of the original ticket.
-         */
 
         const finalImage = await sharp(template)
             .composite([
@@ -201,11 +168,6 @@ export async function POST(request) {
             ])
             .png()
             .toBuffer();
-
-
-        /*
-         * Return final PNG
-         */
 
         return new NextResponse(finalImage, {
             status: 200,
@@ -236,11 +198,6 @@ export async function POST(request) {
     }
 }
 
-
-/*
- * Escape user input before inserting
- * it into SVG.
- */
 
 function escapeXml(value) {
     return String(value)
