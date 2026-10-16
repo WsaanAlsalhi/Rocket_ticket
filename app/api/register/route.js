@@ -1,70 +1,266 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-export const runtime = 'nodejs';
+import { createClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } }
+
+const supabase = createClient(
+
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+
+    {
+        auth: {
+            autoRefreshToken: false,
+
+            persistSession: false
+        }
+    }
+
 );
 
-function generateMissionId() {
-  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `MSN-${rand}`;
-}
 
-function generateSeat() {
-  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 6)); // A–F
-  const number = Math.floor(Math.random() * 50) + 1;
-  return `${letter}${number}`;
-}
+export async function POST(request) {
 
-export async function POST(req) {
-  try {
-    const { name, country, email } = await req.json();
+    try {
 
-    if (!name || !name.trim() || !country || !country.trim()) {
-      return NextResponse.json(
-        { error: 'Name and country are required' },
-        { status: 400 }
-      );
+        const body =
+            await request.json();
+
+
+        const name =
+            String(
+                body.name || ""
+            ).trim();
+
+
+        const country =
+            String(
+                body.country || ""
+            ).trim();
+
+
+        /* =================================
+           VALIDATION
+        ================================= */
+
+        if (!name) {
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Name is required."
+                },
+                {
+                    status: 400
+                }
+            );
+
+        }
+
+
+        if (!country) {
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Country is required."
+                },
+                {
+                    status: 400
+                }
+            );
+
+        }
+
+
+        if (name.length > 50) {
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Name is too long."
+                },
+                {
+                    status: 400
+                }
+            );
+
+        }
+
+
+        if (country.length > 40) {
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Country is too long."
+                },
+                {
+                    status: 400
+                }
+            );
+
+        }
+
+
+        /* =================================
+           INSERT PARTICIPANT
+        ================================= */
+
+        const {
+            data,
+            error
+        } = await supabase
+
+            .from(
+                "rocket_participants"
+            )
+
+            .insert({
+
+                name: name,
+
+                country: country
+
+            })
+
+            .select()
+
+            .single();
+
+
+        if (error) {
+
+            console.error(
+                "Database error:",
+                error
+            );
+
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Could not register participant."
+                },
+                {
+                    status: 500
+                }
+            );
+
+        }
+
+
+        /* =================================
+           GENERATE MISSION ID
+        ================================= */
+
+        const missionId =
+            `RM-${String(data.id).padStart(6, "0")}`;
+
+
+        const seat =
+            `R-${String(data.id).padStart(3, "0")}`;
+
+
+        /* =================================
+           UPDATE PARTICIPANT
+        ================================= */
+
+        const {
+            data: updatedData,
+            error: updateError
+        } = await supabase
+
+            .from(
+                "rocket_participants"
+            )
+
+            .update({
+
+                mission_id:
+                    missionId,
+
+                seat:
+                    seat
+
+            })
+
+            .eq(
+                "id",
+                data.id
+            )
+
+            .select()
+
+            .single();
+
+
+        if (updateError) {
+
+            console.error(
+                "Update error:",
+                updateError
+            );
+
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Could not create mission ID."
+                },
+                {
+                    status: 500
+                }
+            );
+
+        }
+
+
+        /* =================================
+           RETURN DATA
+        ================================= */
+
+        return NextResponse.json({
+
+            success: true,
+
+            id:
+                updatedData.id,
+
+            name:
+                updatedData.name,
+
+            country:
+                updatedData.country,
+
+            mission_id:
+                updatedData.mission_id,
+
+            seat:
+                updatedData.seat
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "Server error:",
+            error
+        );
+
+
+        return NextResponse.json(
+            {
+                error:
+                    "Server error."
+            },
+            {
+                status: 500
+            }
+        );
+
     }
 
-    const mission_id = generateMissionId();
-    const seat = generateSeat();
-
-    const { data, error } = await supabaseAdmin
-      .from('rocket_participants')
-      .insert([
-        {
-          name: name.trim(),
-          country: country.trim(),
-          email: email?.trim() || null,
-          mission_id,
-          seat,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[register] supabase error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    console.log('[register] participant created:', {
-      id: data.id,
-      mission_id: data.mission_id,
-      seat: data.seat,
-    });
-
-    return NextResponse.json({ success: true, participant: data });
-  } catch (err) {
-    console.error('[register] unexpected:', err);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
 }
